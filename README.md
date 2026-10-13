@@ -3,14 +3,14 @@
 Selamat datang di Elendor, sebuah game RPG edukasi yang mengajak pemain menjelajahi sejarah kerajaan-kerajaan di Indonesia melalui petualangan yang menarik!
 
 ## 📋 Daftar Isi
-- [Tentang Game](#tentang-game)
-- [Cara Menjalankan Game](#cara-menjalankan-game)
-- [Tutorial](#tutorial)
-- [Kontrol Game](#kontrol-game)
-- [Fitur Game](#fitur-game)
-- [Sistem Quest](#sistem-quest)
-- [Save & Load](#save--load)
-- [Cheat Code](#cheat-code)
+- Tentang Game
+- Cara Menjalankan Game
+- Tutorial
+- Kontrol Game
+- Fitur Game
+- Sistem Quest
+- Save & Load
+- Cheat Code
 
 ## 🎯 Tentang Game
 Elendor adalah game RPG berbasis web yang menggabungkan unsur pembelajaran sejarah Indonesia dengan gameplay yang menarik. Pemain akan menjelajahi 8 lokasi berbeda yang masing-masing mewakili kerajaan bersejarah di Indonesia.
