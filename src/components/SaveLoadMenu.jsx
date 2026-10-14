@@ -51,7 +51,7 @@ const SaveLoadMenu = ({
   };
 
   return (
-    <div className="save-load-menu">
+    <div className="save-load-menu" role="dialog" aria-label="Save and load">
       <h2>Save/Load Game</h2>
       <div className="save-load-buttons">
         <button onClick={handleSave} className="save-button">
@@ -71,4 +71,4 @@ const SaveLoadMenu = ({
   );
 };
 
-export default SaveLoadMenu; 
+export default SaveLoadMenu;

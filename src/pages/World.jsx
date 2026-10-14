@@ -24,6 +24,11 @@ const STAMINA_THRESHOLD = 5; // Minimum stamina required to start sprinting
 const VIEWPORT_WIDTH = 400;
 const VIEWPORT_HEIGHT = 300;
 
+const cameraForPosition = ({ x, y }) => ({
+  x: Math.max(0, Math.min(Math.floor(x - VIEWPORT_WIDTH / 2), MAP_DIMENSIONS.width - VIEWPORT_WIDTH)),
+  y: Math.max(0, Math.min(Math.floor(y - VIEWPORT_HEIGHT / 2), MAP_DIMENSIONS.height - VIEWPORT_HEIGHT))
+});
+
 // Add these constants
 const FIXED_TIMESTEP = 1000 / 60; // 60 FPS
 const MAX_FRAME_TIME = 250; // Maximum time between frames (ms)
@@ -144,6 +149,8 @@ const MapFrame = styled.div`
   justify-content: center;
   padding: 12px;
   overflow: hidden;
+  /* Focus/scrollIntoView must not pan this clipped presentation container. */
+  overflow: clip;
 
   @media (max-width: 768px) {
     width: 100%;
@@ -258,10 +265,10 @@ const UIContainer = styled.div`
   min-height: 0;
   background: #2c1810;
   border-left: 2px solid #8b4513;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow-y: auto;
 
   @media (max-width: 768px) {
@@ -276,7 +283,7 @@ const UIContainer = styled.div`
   }
 
   @media (min-width: 480px) and (max-height: 480px) {
-    width: clamp(200px, 26vw, 220px);
+    width: clamp(268px, 32vw, 300px);
     max-height: none;
     padding: 6px;
     gap: 6px;
@@ -323,6 +330,8 @@ const MenuPanel = styled.div.attrs(props => ({
   padding: 20px;
   box-sizing: border-box;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -418,6 +427,13 @@ const StatsPanel = styled.div`
       font-size: clamp(12px, 2vw, 16px);
       text-align: left;
       text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    > div > div:first-child {
+      font-size: 11px;
+      line-height: 1.2;
     }
   }
 `;
@@ -556,7 +572,7 @@ const EquipmentRow = styled.div`
 const ControlsPanel = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
 
   @media (max-width: 768px) {
@@ -569,7 +585,7 @@ const ControlsPanel = styled.div`
   }
 
   @media (min-width: 480px) and (max-height: 480px) {
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
     padding: 0;
     gap: 6px;
@@ -580,7 +596,7 @@ const MovementDPadContainer = styled.div`
   position: relative;
   width: 160px;  // Increased from 140px
   height: 160px; // Increased from 140px
-  margin: 20px auto 0; // Added margin-top to move it down a bit
+  margin: 12px auto 0;
   padding: 10px;
   background: rgba(44, 24, 16, 0.8);
   clip-path: polygon(
@@ -603,21 +619,22 @@ const MovementDPadContainer = styled.div`
     inset 0 0 20px rgba(0, 0, 0, 0.3);
 
   @media (max-width: 768px) {
-    width: 140px;
-    height: 140px;
+    width: 152px;
+    height: 152px;
     flex-shrink: 0;
     margin: 0; // Reset margin for mobile
   }
 
   @media (max-width: 480px) {
-    width: 140px;
-    height: 140px;
+    width: 152px;
+    height: 152px;
   }
 
   @media (min-width: 480px) and (max-height: 480px) {
-    width: 140px;
-    height: 140px;
+    width: 152px;
+    height: 152px;
     flex-shrink: 0;
+    margin: 0;
   }
 `;
 
@@ -682,6 +699,12 @@ const MovementDPadButton = styled.button`
     height: 44px;
     font-size: 18px;
   }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
 `;
 
 const DPadCenter = styled.div`
@@ -717,8 +740,8 @@ const DPadCenter = styled.div`
 const ActionButtonGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 6px;
 
   @media (max-width: 768px) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -730,12 +753,14 @@ const ActionButtonGrid = styled.div`
   }
 
   @media (max-width: 480px) {
+    width: 144px;
     gap: 5px;
   }
 
   @media (min-width: 480px) and (max-height: 480px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    width: 156px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 96px;
+    min-width: 96px;
     gap: 6px;
     margin-top: 0;
   }
@@ -971,7 +996,10 @@ const InventoryPanel = styled.div`
 
 const InventoryGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 40px);
+  grid-template-columns: repeat(auto-fit, 40px);
+  justify-content: center;
+  width: 100%;
+  max-width: 210px;
   gap: 8px;
   padding: 8px;
   background: rgba(44, 24, 16, 0.6);
@@ -980,11 +1008,12 @@ const InventoryGrid = styled.div`
   margin: 0 auto;
 
   @media (max-width: 768px) {
-    grid-template-columns: repeat(6, 40px);
+    max-width: 306px;
   }
 
   @media (max-width: 480px) {
-    grid-template-columns: repeat(4, 35px);
+    grid-template-columns: repeat(auto-fit, 35px);
+    max-width: 177px;
     gap: 5px;
   }
 `;
@@ -1329,11 +1358,12 @@ const LocationNotification = styled.div`
   background: rgba(44, 24, 16, 0.9);
   border: 2px solid #8b4513;
   padding: 10px 20px;
+  max-width: calc(100% - 24px);
   color: #ffd700;
   border-radius: 8px;
   font-family: 'MedievalSharp', cursive;
   font-size: 18px;
-  z-index: 1000;
+  z-index: 5;
   opacity: ${props => props.$show ? 1 : 0};
   transition: opacity 0.3s ease-in-out;
   pointer-events: none;
@@ -1402,12 +1432,14 @@ const RelicTitle = styled.h3`
 
 const RelicContainer = styled.div`
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
   padding: 5px;
 `;
 
 const RelicBox = styled.div`
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
   background: ${props => props.$obtained ? 'rgba(255, 215, 0, 0.3)' : 'rgba(139, 69, 19, 0.2)'};
@@ -1503,6 +1535,8 @@ const VisitOption = styled.button`
   text-align: left;
   transition: all 0.2s ease;
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   gap: 10px;
 
@@ -1574,6 +1608,10 @@ const GameCompletionPopup = styled.div`
   box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
   max-width: 600px;
   width: 90%;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 `;
 
 const GameCompletionTitle = styled.h2`
@@ -1874,6 +1912,7 @@ const World = () => {
   const characterRef = useRef(null);
   const mapRef = useRef(null);
   const keysPressed = useRef({});
+  const dPadPointers = useRef(new globalThis.Map());
   const spriteCacheRef = useRef({});
   const lastMovementTime = useRef(Date.now());
   const longIdleTimer = useRef(null);
@@ -1890,6 +1929,16 @@ const World = () => {
   const animationFrameId = useRef(null);
   const accumulator = useRef(0);
   const lastTime = useRef(0);
+
+  const releaseMovement = useCallback(() => {
+    keysPressed.current = {};
+    isShiftPressed.current = false;
+    for (const [pointerId, { target }] of dPadPointers.current) {
+      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
+    }
+    dPadPointers.current.clear();
+    setMovement('idle');
+  }, []);
 
   // Constants
   const STAMINA_DRAIN_RATE = 15;
@@ -2155,15 +2204,25 @@ const World = () => {
   // Handle pause/unpause
   const togglePause = () => {
     setIsPaused(prev => !prev);
-    if (!isPaused) {
-      setShowSaveLoadMenu(false);
-    }
+    setShowSaveLoadMenu(false);
+  };
+
+  const closeLocationPanels = () => {
+    setShowVisitMenu(false);
+    setShowShop(false);
+    setShowLodge(false);
+    setShowDialog(false);
+    setShowQuest(false);
   };
 
   // Handle restart
   const handleRestart = () => {
     const spawnPoint = spawnManager.getRandomSpawnPoint();
     setPosition(spawnPoint);
+    setCameraPosition(cameraForPosition(spawnPoint));
+    setCurrentLocation(locationManager.checkLocation(spawnPoint.x, spawnPoint.y));
+    closeLocationPanels();
+    releaseMovement();
     setMapPosition({
       x: -(spawnPoint.x - VIEWPORT_WIDTH/2),
       y: -(spawnPoint.y - VIEWPORT_HEIGHT/2)
@@ -2189,24 +2248,39 @@ const World = () => {
   // Update keyboard event handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
-      keysPressed.current[e.key.toLowerCase()] = true;
-      if (e.key.toLowerCase() === 'shift') {
-        isShiftPressed.current = true;
+      const key = e.key.toLowerCase();
+      if (e.target.closest?.('input, textarea, select, [contenteditable="true"]') || e.ctrlKey || e.altKey || e.metaKey) return;
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
+        if (!isPaused && !showMap) {
+          e.preventDefault();
+          keysPressed.current[key] = true;
+          if (key === 'shift') isShiftPressed.current = true;
+        }
+        return;
       }
-      if (e.key.toLowerCase() === 'escape') {
-        if (showMap) {
+      // Menu shortcuts should fire once per press, even when the key is held.
+      if (e.repeat) return;
+      if (key === 'escape') {
+        e.preventDefault();
+        if (showSaveLoadMenu) {
+          setShowSaveLoadMenu(false);
+        } else if (showMap) {
           setShowMap(false);
         } else {
           togglePause();
         }
+        return;
       }
-      if (e.key.toLowerCase() === 'r') {
+      if (isPaused) return;
+      if (key === 'm') {
+        setShowMap(prev => !prev);
+        return;
+      }
+      if (showMap) return;
+      if (key === 'r') {
         toggleRun();
       }
-      if (e.key.toLowerCase() === 'm') {
-        setShowMap(prev => !prev);
-      }
-      if (e.key.toLowerCase() === 'i') {
+      if (key === 'i') {
         if (showInventory) {
           setShowInventory(false);
         } else {
@@ -2214,7 +2288,7 @@ const World = () => {
           setContainerContent('inventory');
         }
       }
-      if (e.key.toLowerCase() === 't') {
+      if (key === 't') {
         if (showDetailedStats) {
           setShowDetailedStats(false);
         } else {
@@ -2227,11 +2301,11 @@ const World = () => {
       if (e.key === 'F3') {
         setShowDebug(prev => !prev);
       }
-      if (e.key.toLowerCase() === 'e') {
+      if (key === 'e') {
         handleInteract();
       }
       // Cheat code: Press 'P' to get all relics
-      if (e.key.toLowerCase() === 'p') {
+      if (key === 'p') {
         const relicNames = [
           'Majapahit Relic',
           'Kutai Relic',
@@ -2267,7 +2341,7 @@ const World = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showMap, showInventory, showDetailedStats, currentLocation]);
+  }, [isPaused, showSaveLoadMenu, showMap, showInventory, showDetailedStats, showVisitMenu, currentLocation]);
 
   // Game loop function using useCallback
   const gameLoop = useCallback((timestamp) => {
@@ -2293,7 +2367,8 @@ const World = () => {
     accumulator.current += frameTime;
 
     while (accumulator.current >= FIXED_TIMESTEP) {
-      const keys = keysPressed.current;
+      const keys = { ...keysPressed.current };
+      for (const { key } of dPadPointers.current.values()) keys[key] = true;
       let newX = position.x;
       let newY = position.y;
       let newDirection = direction;
@@ -2374,14 +2449,7 @@ const World = () => {
         setPosition({ x: newX, y: newY });
 
         // Update camera position to follow player
-        const targetCameraX = Math.floor(newX - VIEWPORT_WIDTH/2);
-        const targetCameraY = Math.floor(newY - VIEWPORT_HEIGHT/2);
-
-        // Clamp camera position to map boundaries with proper padding
-        const clampedCameraX = Math.max(0, Math.min(targetCameraX, MAP_DIMENSIONS.width - VIEWPORT_WIDTH));
-        const clampedCameraY = Math.max(0, Math.min(targetCameraY, MAP_DIMENSIONS.height - VIEWPORT_HEIGHT));
-
-        setCameraPosition({ x: clampedCameraX, y: clampedCameraY });
+        setCameraPosition(cameraForPosition({ x: newX, y: newY }));
         
         setDirection(newDirection);
         const newMovement = canSprint && (isShiftPressed.current || isRunToggled) ? 'run' : 'walk';
@@ -2533,25 +2601,23 @@ const World = () => {
   }, [isLoading, selectedCharacter?.name]);
 
   useEffect(() => {
-    const releaseMovement = () => {
-      keysPressed.current = {};
-      isShiftPressed.current = false;
-    };
     const handleHidden = () => { if (document.hidden) releaseMovement(); };
     window.addEventListener('blur', releaseMovement);
+    window.addEventListener('resize', releaseMovement);
     document.addEventListener('visibilitychange', handleHidden);
     return () => {
       window.removeEventListener('blur', releaseMovement);
+      window.removeEventListener('resize', releaseMovement);
       document.removeEventListener('visibilitychange', handleHidden);
+      releaseMovement();
     };
-  }, []);
+  }, [releaseMovement]);
 
   useEffect(() => {
     if (isPaused || showMap) {
-      keysPressed.current = {};
-      isShiftPressed.current = false;
+      releaseMovement();
     }
-  }, [isPaused, showMap]);
+  }, [isPaused, showMap, releaseMovement]);
 
   // Function to handle inventory slot click
   const handleSlotClick = (section, index) => {
@@ -2636,45 +2702,28 @@ const World = () => {
     }
   }, [isSprintCooldown]);
 
-  const handleDPadPress = (direction) => {
-    // Set the corresponding key in keysPressed
-    const directionMap = {
-      'up': 'w',
-      'down': 's',
-      'left': 'a',
-      'right': 'd'
+  const dPadHandlers = (direction) => {
+    const releasePointer = (event) => {
+      dPadPointers.current.delete(event.pointerId);
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
     };
-    
-    if (directionMap[direction]) {
-      keysPressed.current[directionMap[direction]] = true;
-    }
-  };
-
-  const handleDPadRelease = (direction) => {
-    // Release the corresponding key in keysPressed
-    const directionMap = {
-      'up': 'w',
-      'down': 's',
-      'left': 'a',
-      'right': 'd'
+    return {
+      onPointerDown: (event) => {
+        if (event.button !== 0 || isPaused || showMap) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dPadPointers.current.set(event.pointerId, {
+          key: { up: 'w', down: 's', left: 'a', right: 'd' }[direction],
+          target: event.currentTarget
+        });
+      },
+      onPointerUp: releasePointer,
+      onPointerCancel: releasePointer,
+      onLostPointerCapture: releasePointer
     };
-    
-    if (directionMap[direction]) {
-      keysPressed.current[directionMap[direction]] = false;
-    }
   };
-
-  const dPadHandlers = (direction) => ({
-    onPointerDown: (event) => {
-      if (event.button !== 0 || isPaused || showMap) return;
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-      handleDPadPress(direction);
-    },
-    onPointerUp: () => handleDPadRelease(direction),
-    onPointerCancel: () => handleDPadRelease(direction),
-    onLostPointerCapture: () => handleDPadRelease(direction)
-  });
 
   // Add collision map loading
   useEffect(() => {
@@ -2704,10 +2753,8 @@ const World = () => {
         });
 
         // Set initial camera position
-        setCameraPosition({
-          x: Math.max(0, Math.min(spawnPoint.x - VIEWPORT_WIDTH/2, MAP_DIMENSIONS.width - VIEWPORT_WIDTH)),
-          y: Math.max(0, Math.min(spawnPoint.y - VIEWPORT_HEIGHT/2, MAP_DIMENSIONS.height - VIEWPORT_HEIGHT))
-        });
+        setCameraPosition(cameraForPosition(spawnPoint));
+        setCurrentLocation(locationManager.checkLocation(spawnPoint.x, spawnPoint.y));
       } catch (error) {
         console.error('Failed to initialize game:', error);
       } finally {
@@ -4095,6 +4142,10 @@ const World = () => {
     setObtainedRelics(obtainedRelics);
     setInventory(inventory);
     setPosition(position);
+    setCameraPosition(cameraForPosition(position));
+    setCurrentLocation(locationManager.checkLocation(position.x, position.y));
+    closeLocationPanels();
+    releaseMovement();
     setShowSaveLoadMenu(false);
     setIsPaused(false);
   };
@@ -4103,16 +4154,16 @@ const World = () => {
     <WorldContainer>
       <Header>Elendor - {playerName}</Header>
       <GameArea>
-        <LocationNotification $show={currentLocation !== null}>
-          {currentLocation}
-        </LocationNotification>
-        
         <MapFrame ref={mapFrameRef} data-testid="map-frame">
+          <LocationNotification $show={currentLocation !== null}>
+            {currentLocation}
+          </LocationNotification>
           <GameplayContainer $scale={viewportScale} data-testid="gameplay-viewport">
             <ViewportContainer>
               <ViewportFrame>
                 <MapContainer>
                   <Map 
+                    data-testid="world-map"
                     $cameraX={cameraPosition.x}
                     $cameraY={cameraPosition.y}
                     style={{
@@ -4149,11 +4200,12 @@ const World = () => {
         <ContainerShown data-testid="game-panels" $isVisible={Boolean(showInventory || showDetailedStats || (showVisitMenu && currentLocation) || showShop || showLodge || showDialog || showQuest)}>
           {showInventory && (
             <MenuPanel 
+              data-testid="inventory-panel"
               $isVisible={showInventory} 
               $isStacked={showDetailedStats || showVisitMenu || showShop || showLodge || showDialog}
               style={{ order: containerContent === 'inventory' ? 0 : 1 }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close inventory panel" onClick={() => {
                 setShowInventory(false);
               }}>×</CloseButton>
               <InventoryTitle>Inventory</InventoryTitle>
@@ -4296,11 +4348,12 @@ const World = () => {
           
           {showDetailedStats && (
             <MenuPanel 
+              data-testid="stats-panel"
               $isVisible={showDetailedStats} 
               $isStacked={showInventory || showVisitMenu || showShop || showLodge || showDialog}
               style={{ order: containerContent === 'stats' ? 0 : 1 }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close stats panel" onClick={() => {
                 setShowDetailedStats(false);
               }}>×</CloseButton>
 
@@ -4365,6 +4418,7 @@ const World = () => {
 
           {showVisitMenu && currentLocation && (
             <MenuPanel 
+              data-testid="visit-panel"
               $isVisible={showVisitMenu} 
               $isStacked={showInventory || showDetailedStats || showShop || showLodge || showDialog}
               style={{ 
@@ -4373,7 +4427,7 @@ const World = () => {
                 zIndex: containerContent === 'visit' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close location panel" onClick={() => {
                 setShowVisitMenu(false);
               }}>×</CloseButton>
               <VisitMenuTitle>{currentLocation}</VisitMenuTitle>
@@ -4397,6 +4451,7 @@ const World = () => {
 
           {showShop && (
             <MenuPanel 
+              data-testid="shop-panel"
               $isVisible={showShop} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showLodge || showDialog}
               style={{ 
@@ -4405,7 +4460,7 @@ const World = () => {
                 zIndex: containerContent === 'shop' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close shop panel" onClick={() => {
                 setShowShop(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4453,6 +4508,7 @@ const World = () => {
 
           {showLodge && (
             <MenuPanel 
+              data-testid="lodge-panel"
               $isVisible={showLodge} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showShop || showDialog}
               style={{ 
@@ -4461,7 +4517,7 @@ const World = () => {
                 zIndex: containerContent === 'lodge' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close lodge panel" onClick={() => {
                 setShowLodge(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4482,6 +4538,7 @@ const World = () => {
 
           {showDialog && (
             <MenuPanel 
+              data-testid="dialog-panel"
               $isVisible={showDialog} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showShop || showLodge}
               style={{ 
@@ -4490,7 +4547,7 @@ const World = () => {
                 zIndex: containerContent === 'dialog' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close conversation panel" onClick={() => {
                 setShowDialog(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4512,6 +4569,7 @@ const World = () => {
 
           {showQuest && (
             <MenuPanel 
+              data-testid="quest-panel"
               $isVisible={showQuest} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showShop || showLodge || showDialog}
               style={{ 
@@ -4520,7 +4578,7 @@ const World = () => {
                 zIndex: containerContent === 'quest' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close quest panel" onClick={() => {
                 setShowQuest(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4669,6 +4727,7 @@ const World = () => {
             <img src="/assets/map/ElendorCompass.png" alt="World Map" />
             {position && (
             <PlayerLocationMarker 
+              data-testid="map-marker"
               $x={position.x}
               $y={position.y}
             />

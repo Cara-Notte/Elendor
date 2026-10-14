@@ -1397,8 +1397,10 @@ input.empty {
 }
 
 @media (max-height: 600px) {
-  .selection-title { top: 40px; font-size: clamp(24px, 5vw, 36px); }
-  .card-container { height: min(260px, calc(100vh - 120px)); height: min(260px, calc(100dvh - 120px)); }
+  #clock { top: 8px; right: 8px; min-width: 0; padding: 6px 10px; font-size: 14px; }
+  .selection-title { top: 48px; font-size: clamp(24px, 5vw, 36px); }
+  .floating-card-container { top: calc(50% + 24px); }
+  .card-container { height: min(260px, calc(100vh - 160px)); height: min(260px, calc(100dvh - 160px)); }
   .card-image { max-height: 60%; width: auto; max-width: 100%; margin-top: 8px; }
   .card-title { font-size: 22px; }
   .menu-container { bottom: 8px; left: 8px; }

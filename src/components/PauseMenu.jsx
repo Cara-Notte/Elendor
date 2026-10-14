@@ -41,7 +41,7 @@ const PauseButton = styled.button`
 
 const PauseMenu = ({ onResume, onRestart, onExit, onSaveLoad }) => {
   return (
-    <PauseMenuContainer>
+    <PauseMenuContainer role="dialog" aria-label="Pause menu">
       <h2 style={{ textAlign: 'center', color: '#ed2024', marginBottom: '1rem' }}>Game Paused</h2>
       <PauseButton onClick={onResume}>
         Resume Game

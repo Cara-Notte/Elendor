@@ -1,0 +1,276 @@
+{
+  "browser": "140.0.7339.186",
+  "viewports": [
+    {
+      "width": 320,
+      "height": 568,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 320,
+          "height": 274.96875
+        },
+        "viewport": {
+          "x": 8,
+          "y": 82.484375,
+          "width": 304,
+          "height": 228
+        },
+        "hud": {
+          "x": 0,
+          "y": 334.96875,
+          "width": 320,
+          "height": 233.03125
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 390,
+          "height": 548
+        },
+        "viewport": {
+          "x": 8,
+          "y": 192.75,
+          "width": 374,
+          "height": 280.5
+        },
+        "hud": {
+          "x": 0,
+          "y": 608,
+          "width": 390,
+          "height": 236
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 768,
+          "height": 724
+        },
+        "viewport": {
+          "x": 8,
+          "y": 139,
+          "width": 752,
+          "height": 564
+        },
+        "hud": {
+          "x": 0,
+          "y": 784,
+          "width": 768,
+          "height": 240
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 573.921875,
+          "height": 330
+        },
+        "viewport": {
+          "x": 81.953125,
+          "y": 72,
+          "width": 408,
+          "height": 306
+        },
+        "hud": {
+          "x": 573.921875,
+          "y": 60,
+          "width": 270.078125,
+          "height": 330
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 1066,
+          "height": 708
+        },
+        "viewport": {
+          "x": 76,
+          "y": 72,
+          "width": 912,
+          "height": 684
+        },
+        "hud": {
+          "x": 1066,
+          "y": 60,
+          "width": 300,
+          "height": 708
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    },
+    {
+      "width": 768,
+      "height": 390,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 500,
+          "height": 330
+        },
+        "viewport": {
+          "x": 39.66667175292969,
+          "y": 68,
+          "width": 418.6666259765625,
+          "height": 314
+        },
+        "hud": {
+          "x": 500,
+          "y": 60,
+          "width": 268,
+          "height": 330
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    },
+    {
+      "width": 568,
+      "height": 320,
+      "bounds": {
+        "frame": {
+          "x": 0,
+          "y": 60,
+          "width": 300,
+          "height": 260
+        },
+        "viewport": {
+          "x": 8,
+          "y": 84.25,
+          "width": 282,
+          "height": 211.5
+        },
+        "hud": {
+          "x": 300,
+          "y": 60,
+          "width": 268,
+          "height": 260
+        }
+      },
+      "checks": [
+        "selection, confirmation, character details and name entry",
+        "painted 4:3 viewport and unobscured closed panels",
+        "visible 44px HUD controls without scrolling",
+        "inventory and stats scrolling, simultaneous panels and independent closing",
+        "world map, marker, pause and save/load popup bounds and reachable controls"
+      ]
+    }
+  ],
+  "regressions": [
+    "All four character choices, Enter/Space selection and phone guide/relic dialogs",
+    "Live resizing/orientation across all seven sizes preserves position, camera and map marker",
+    "Keyboard movement and held menu shortcuts",
+    "Native Chromium touch capture, drag outside, matching keyboard release, pointerup and pointercancel",
+    "Orientation, pause/resume and delivered focus-loss event release movement",
+    "Movement stops on real collision pixels; all four camera boundaries survive orientation changes",
+    "Location, shop, lodge, conversation and quest panels fit and scroll at all seven sizes",
+    "Loading at another location and restarting dismiss stale location dialogs; Escape closes save/load before pause",
+    "Five real-location quest waves across orientation changes; earned gold, relic, inventory and position save/load"
+  ],
+  "errors": [],
+  "limitations": [
+    "Chromium emulation only; physical phones, Safari and Android browsers were not tested.",
+    "A shortened viewport tests name-entry scrolling; a real software keyboard was not opened.",
+    "Boundary and quest cases load reproducible saved positions sampled from the real collision and location images."
+  ],
+  "realMapSamples": {
+    "dimensions": {
+      "width": 2048,
+      "height": 1639
+    },
+    "open": {
+      "x": 302,
+      "y": 252
+    },
+    "wall": {
+      "x": 356,
+      "y": 201
+    },
+    "lakers": {
+      "x": 398,
+      "y": 1299
+    },
+    "boundaries": {
+      "left": {
+        "x": 170,
+        "y": 207
+      },
+      "right": {
+        "x": 1877,
+        "y": 147
+      },
+      "top": {
+        "x": 305,
+        "y": 30
+      },
+      "bottom": {
+        "x": 20,
+        "y": 1512
+      }
+    }
+  },
+  "passed": true
+}

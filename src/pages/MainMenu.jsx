@@ -527,7 +527,7 @@ const MainMenu = () => {
           {showCharacterDetails && (
             <>
               <div className="character-details-backdrop show" />
-              <CharacterDetailsExpanded className="show">
+              <CharacterDetailsExpanded className="show" role="dialog" aria-label="Character details">
                 <BackButton onClick={() => {
                   setShowCharacterDetails(false);
                   setShowConfirmation(false);
@@ -594,7 +594,10 @@ const MainMenu = () => {
                   </div>
                 </div>
 
-                <div className="input-container">
+                <form className="input-container" onSubmit={(event) => {
+                  event.preventDefault();
+                  handleStartGame();
+                }}>
                   <label htmlFor="playerName" className="input-label">Enter Your Name, Hero</label>
                   <input 
                     type="text" 
@@ -607,7 +610,6 @@ const MainMenu = () => {
                   <button 
                     id="startBtn" 
                     type="submit" 
-                    onClick={handleStartGame}
                     disabled={!playerName.trim()}
                     className={!playerName.trim() ? 'disabled' : ''}
                   >
@@ -616,7 +618,7 @@ const MainMenu = () => {
                   {!playerName.trim() && (
                     <p className="input-warning">Please enter your name to begin the adventure</p>
                   )}
-                </div>
+                </form>
               </CharacterDetailsExpanded>
             </>
           )}

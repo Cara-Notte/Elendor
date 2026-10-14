@@ -53,9 +53,9 @@ async function until(callback, message) {
 const doc = w.document;
 const byText = text => [...doc.querySelectorAll('button')].find(el => el.textContent.trim() === text);
 const click = el => { assert(el, 'Expected control exists'); el.dispatchEvent(new w.MouseEvent('click',{bubbles:true})); };
-function pointer(el, type) {
+function pointer(el, type, pointerId=1) {
   const event = new w.MouseEvent(type,{bubbles:true,button:0});
-  Object.defineProperty(event,'pointerId',{value:1});
+  Object.defineProperty(event,'pointerId',{value:pointerId});
   el.dispatchEvent(event);
 }
 const playerX = () => parseFloat(doc.querySelector('[data-testid="player"]').style.left);
@@ -115,6 +115,26 @@ try {
   assert.equal(playerX(),blurred,'Losing focus left movement stuck');
   results.push('Pointer movement stops on cancellation and focus loss');
 
+  pointer(right,'pointerdown',1); pointer(right,'pointerdown',2); await wait(60);
+  pointer(right,'pointerup',1); const oneReleased=playerX(); await wait(80);
+  assert(playerX()>oneReleased,'Releasing one pointer stopped another held pointer');
+  pointer(right,'lostpointercapture',2); await wait(40);
+  const captureLost=playerX(); await wait(80);
+  assert.equal(playerX(),captureLost,'Lost pointer capture left movement stuck');
+  pointer(right,'pointerdown'); await wait(60);
+  w.dispatchEvent(new w.Event('resize')); await wait(40);
+  const resized=playerX(); await wait(80);
+  assert.equal(playerX(),resized,'Resizing left a held pointer active');
+  results.push('Independent pointer releases, lost capture and resize cleanup');
+
+  w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'i',bubbles:true})); await wait(30);
+  w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'i',repeat:true,bubbles:true})); await wait(30);
+  assert(doc.querySelector('[data-testid="inventory-panel"]'),'Repeating shortcut closed inventory');
+  w.dispatchEvent(new w.KeyboardEvent('keyup',{key:'i',bubbles:true}));
+  w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'i',bubbles:true})); await wait(30);
+  assert(!doc.querySelector('[data-testid="inventory-panel"]'));
+  results.push('Menu shortcut auto-repeat does not toggle twice');
+
   click(byText('M')); await wait(30);
   assert(doc.querySelector('[aria-label="World map"]'));
   click(doc.querySelector('[aria-label="Close world map"]')); await wait(30);
@@ -127,6 +147,7 @@ try {
     click(byText(answer));
   }
   await until(()=>doc.body.textContent.includes('Anda telah menyelesaikan semua gelombang'),'Quest completion failed');
+  await until(()=>JSON.parse(w.localStorage.getItem('characterStats')).relics?.includes('Majapahit Relic'),'Relic reward was not persisted');
   const completedStats=JSON.parse(w.localStorage.getItem('characterStats'));
   assert(completedStats.relics.includes('Majapahit Relic'),'Quest did not award relic');
   assert.equal(completedStats.gold,1050,'Relic award overwrote earned gold');

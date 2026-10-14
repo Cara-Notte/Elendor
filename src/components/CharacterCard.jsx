@@ -7,7 +7,14 @@ const CharacterCard = ({ character, onClick, className = '' }) => {
 
   return (
     <div className="card-container">
-      <div className={`character-card ${className}`} onClick={onClick}>
+      <div className={`character-card ${className}`} role="button" tabIndex={0}
+        aria-label={`Choose ${character.name}`} onClick={onClick}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+          }
+        }}>
         <div className="card-face card-front">
           <img 
             src={getCharacterLogo(character.name)} 
@@ -36,4 +43,4 @@ const CharacterCard = ({ character, onClick, className = '' }) => {
   );
 };
 
-export default CharacterCard; 
+export default CharacterCard;
