@@ -57,17 +57,22 @@ const relics = [
 ];
 
 const CharacterDetailsExpanded = styled.div`
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.65);
+  transform: translate(-50%, -50%);
   background: rgba(44, 24, 16, 0.95);
   border: 4px solid #8b4513;
   border-radius: 15px;
-  padding: 50px 30px 30px;
+  padding: 50px clamp(12px, 4vw, 30px) 20px;
   color: #ffd700;
-  z-index: 1000;
-  min-width: 600px;
+  z-index: 1001;
+  width: min(680px, calc(100vw - 24px));
+  min-width: 0;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   opacity: 0;
   transition: opacity 0.3s ease;
   
@@ -621,4 +626,4 @@ const MainMenu = () => {
   );
 };
 
-export default MainMenu; 
+export default MainMenu;
