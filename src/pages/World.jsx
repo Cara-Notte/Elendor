@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { useGame } from '../context/GameContext';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +23,11 @@ const SPRINT_COOLDOWN = 3000; // 3 seconds cooldown
 const STAMINA_THRESHOLD = 5; // Minimum stamina required to start sprinting
 const VIEWPORT_WIDTH = 400;
 const VIEWPORT_HEIGHT = 300;
+
+const cameraForPosition = ({ x, y }) => ({
+  x: Math.max(0, Math.min(Math.floor(x - VIEWPORT_WIDTH / 2), MAP_DIMENSIONS.width - VIEWPORT_WIDTH)),
+  y: Math.max(0, Math.min(Math.floor(y - VIEWPORT_HEIGHT / 2), MAP_DIMENSIONS.height - VIEWPORT_HEIGHT))
+});
 
 // Add these constants
 const FIXED_TIMESTEP = 1000 / 60; // 60 FPS
@@ -50,6 +55,7 @@ const MIN_MOVEMENT_THRESHOLD = 0.01; // Minimum movement distance
 const GameContainer = styled.div`
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -86,8 +92,9 @@ const CloseButton = styled.button`
 `;
 
 const WorldContainer = styled.div`
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   overflow: hidden;
   background: #1a0f2b;
@@ -98,6 +105,9 @@ const WorldContainer = styled.div`
 const Header = styled.div`
   width: 100%;
   height: 60px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  overflow: hidden;
   background: #2c1810;
   border-bottom: 2px solid #8b4513;
   color: #ffd700;
@@ -113,65 +123,63 @@ const Header = styled.div`
 const GameArea = styled.div`
   position: relative;
   width: 100%;
-  height: calc(100% - 60px);
+  flex: 1;
+  min-height: 0;
   display: flex;
   background: #1a0f2b;
-  flex-direction: row;
 
   @media (max-width: 768px) {
     flex-direction: column;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    flex-direction: row;
   }
 `;
 
 const MapFrame = styled.div`
   position: relative;
-  width: 80%;
-  height: 100%;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   background: #2c1810;
   border-right: 2px solid #8b4513;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 10px 10px 10px 40px;
-  box-sizing: border-box;
+  justify-content: center;
+  padding: 12px;
   overflow: hidden;
+  /* Focus/scrollIntoView must not pan this clipped presentation container. */
+  overflow: clip;
 
   @media (max-width: 768px) {
     width: 100%;
-    height: 70%;
     border-right: none;
     border-bottom: 2px solid #8b4513;
-    padding: 10px;
-    justify-content: center;
+    padding: 8px;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    border-bottom: none;
+    border-right: 2px solid #8b4513;
   }
 `;
 
-const GameplayContainer = styled.div`
-  width: 400px;
-  height: 300px;
-  border: 2px solid #8b4513;
+const GameplayContainer = styled.div.attrs(props => ({
+  style: { transform: `scale(${props.$scale})` }
+}))`
+  width: ${VIEWPORT_WIDTH}px;
+  height: ${VIEWPORT_HEIGHT}px;
+  flex-shrink: 0;
+  outline: 2px solid #8b4513;
+  outline-offset: -2px;
   position: relative;
   overflow: hidden;
   background: #2c1810;
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: scale(2.5);
-  transform-origin: left center;
-
-  @media (max-width: 1024px) {
-    transform: scale(2);
-  }
-
-  @media (max-width: 768px) {
-    transform: scale(1.75);
-    transform-origin: center;
-  }
-
-  @media (max-width: 480px) {
-    transform: scale(1.25);
-    transform-origin: center;
-  }
+  transform-origin: center;
 `;
 
 const ViewportContainer = styled.div`
@@ -252,61 +260,59 @@ const Character = styled.div.attrs(props => ({
 `;
 
 const UIContainer = styled.div`
-  width: 20%;
-  height: 100%;
+  width: clamp(220px, 22vw, 300px);
+  flex-shrink: 0;
+  min-height: 0;
   background: #2c1810;
   border-left: 2px solid #8b4513;
-  padding: 20px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  box-sizing: border-box;
+  gap: 12px;
   overflow-y: auto;
 
   @media (max-width: 768px) {
     width: 100%;
-    height: 35%;
-    position: fixed;
-    bottom: 0;
-    left: 0;
+    padding: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 8px;
     border-left: none;
     border-top: 2px solid #8b4513;
-    padding: 10px;
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 10px;
-    align-items: stretch;
-    z-index: 20;
+    overflow-x: hidden;
+    max-height: 60%;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    width: clamp(268px, 32vw, 300px);
+    max-height: none;
+    padding: 6px;
+    gap: 6px;
+    border-top: none;
+    border-left: 2px solid #8b4513;
   }
 `;
 
-const ContainerShown = styled.div.attrs(props => ({
-  style: {
-    pointerEvents: props.$isVisible ? 'auto' : 'none'
-  }
-}))`
-  width: 20%;
-  height: 100%;
+const ContainerShown = styled.div`
+  width: min(420px, calc(100% - 20px));
   position: absolute;
-  right: 20%;
-  top: 0;
+  right: 10px;
+  top: 10px;
+  bottom: 10px;
   z-index: 10;
-  display: flex;
+  display: ${props => props.$isVisible ? 'flex' : 'none'};
   flex-direction: column;
   gap: 10px;
-  padding: 10px;
+  padding: 8px;
   background: rgba(44, 24, 16, 0.95);
-  border-right: 2px solid #8b4513;
-  border-left: 2px solid #8b4513;
-  
+  border: 2px solid #8b4513;
+  min-height: 0;
+
   @media (max-width: 768px) {
-    width: 100%;
-    height: 65%;
-    right: 0;
-    top: 0;
-    border: none;
-    border-bottom: 2px solid #8b4513;
-    z-index: 15;
+    width: auto;
+    left: 8px;
+    right: 8px;
+    top: 8px;
+    bottom: 8px;
   }
 `;
 
@@ -314,7 +320,8 @@ const MenuPanel = styled.div.attrs(props => ({
   style: {
     transform: `translateX(${props.$isVisible ? '0' : '100%'}) scale(${props.$isVisible ? '1' : '0.95'})`,
     opacity: props.$isVisible ? '1' : '0',
-    height: props.$isStacked ? '50%' : '100%'
+    flex: props.$isStacked ? '1 1 0' : '1',
+    minHeight: 0
   }
 }))`
   background: #2c1810;
@@ -323,6 +330,8 @@ const MenuPanel = styled.div.attrs(props => ({
   padding: 20px;
   box-sizing: border-box;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -362,7 +371,6 @@ const MenuPanel = styled.div.attrs(props => ({
   }
 
   @media (max-width: 768px) {
-    height: ${props => props.$isStacked ? 'calc(50% - 10px)' : '100%'};
     padding: 15px;
   }
 
@@ -384,11 +392,28 @@ const StatsPanel = styled.div`
   margin-top: 10px;
 
   @media (max-width: 768px) {
-    min-width: 180px;
-    max-width: 220px;
+    min-width: 0;
+    max-width: none;
     margin-top: 0;
-    padding: 8px;
+    padding: 6px;
     gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    display: grid;
+    grid-template-columns: 45px repeat(3, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin-top: 0;
+    padding: 6px;
+    gap: 4px;
+    font-size: 10px;
     flex-shrink: 0;
   }
 
@@ -402,6 +427,13 @@ const StatsPanel = styled.div`
       font-size: clamp(12px, 2vw, 16px);
       text-align: left;
       text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    > div > div:first-child {
+      font-size: 11px;
+      line-height: 1.2;
     }
   }
 `;
@@ -540,15 +572,23 @@ const EquipmentRow = styled.div`
 const ControlsPanel = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
 
   @media (max-width: 768px) {
     flex-direction: row;
     justify-content: space-between;
     width: 100%;
-    gap: 10px;
-    padding: 0 10px;
+    min-width: 0;
+    gap: 8px;
+    padding: 0;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    flex-direction: row;
+    width: 100%;
+    padding: 0;
+    gap: 6px;
   }
 `;
 
@@ -556,7 +596,7 @@ const MovementDPadContainer = styled.div`
   position: relative;
   width: 160px;  // Increased from 140px
   height: 160px; // Increased from 140px
-  margin: 20px auto 0; // Added margin-top to move it down a bit
+  margin: 12px auto 0;
   padding: 10px;
   background: rgba(44, 24, 16, 0.8);
   clip-path: polygon(
@@ -579,14 +619,22 @@ const MovementDPadContainer = styled.div`
     inset 0 0 20px rgba(0, 0, 0, 0.3);
 
   @media (max-width: 768px) {
-    width: 120px;
-    height: 120px;
+    width: 152px;
+    height: 152px;
+    flex-shrink: 0;
     margin: 0; // Reset margin for mobile
   }
 
   @media (max-width: 480px) {
-    width: 100px;
-    height: 100px;
+    width: 152px;
+    height: 152px;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    width: 152px;
+    height: 152px;
+    flex-shrink: 0;
+    margin: 0;
   }
 `;
 
@@ -602,6 +650,8 @@ const MovementDPadButton = styled.button`
   color: #ffd700;
   font-size: 24px; // Slightly increased font size
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
   transition: all 0.2s ease;
 
   &:hover {
@@ -639,15 +689,21 @@ const MovementDPadButton = styled.button`
   }
 
   @media (max-width: 768px) {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     font-size: 20px;
   }
 
   @media (max-width: 480px) {
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     font-size: 18px;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
   }
 `;
 
@@ -684,17 +740,29 @@ const DPadCenter = styled.div`
 const ActionButtonGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 6px;
 
   @media (max-width: 768px) {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 156px;
+    min-width: 144px;
+    gap: 6px;
     margin-top: 0;
-    align-items: center;
+    align-items: start;
   }
 
   @media (max-width: 480px) {
+    width: 144px;
     gap: 5px;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 96px;
+    min-width: 96px;
+    gap: 6px;
+    margin-top: 0;
   }
 `;
 
@@ -735,8 +803,8 @@ const ActionButton = styled.button`
   border-radius: 6px;
   transition: all 0.2s ease;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 8px;
   overflow: hidden;
 
@@ -763,15 +831,15 @@ const ActionButton = styled.button`
   }
 
   @media (max-width: 768px) {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 6px;
     font-size: 14px;
   }
 
   @media (max-width: 480px) {
-    min-width: 32px;
-    min-height: 32px;
+    min-width: 44px;
+    min-height: 44px;
     padding: 4px;
     font-size: 12px;
   }
@@ -790,6 +858,10 @@ const ButtonLabel = styled.div`
   @media (max-width: 480px) {
     font-size: 9px;
   }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    display: none;
+  }
 `;
 
 const StatBar = styled.div`
@@ -800,6 +872,10 @@ const StatBar = styled.div`
   border-radius: 10px;
   overflow: hidden;
   position: relative;
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    height: 10px;
+  }
 
   &::after {
     content: '';
@@ -827,8 +903,15 @@ const TimeDisplay = styled.div`
   border: 1px solid #8b4513;
 
   @media (max-width: 768px) {
-    margin-bottom: 5px;
+    margin-bottom: 0;
     padding: 4px;
+    font-size: 14px;
+  }
+
+  @media (min-width: 480px) and (max-height: 480px) {
+    font-size: 10px;
+    margin-bottom: 0;
+    padding: 2px;
   }
 `;
 
@@ -913,7 +996,10 @@ const InventoryPanel = styled.div`
 
 const InventoryGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 40px);
+  grid-template-columns: repeat(auto-fit, 40px);
+  justify-content: center;
+  width: 100%;
+  max-width: 210px;
   gap: 8px;
   padding: 8px;
   background: rgba(44, 24, 16, 0.6);
@@ -922,11 +1008,12 @@ const InventoryGrid = styled.div`
   margin: 0 auto;
 
   @media (max-width: 768px) {
-    grid-template-columns: repeat(6, 40px);
+    max-width: 306px;
   }
 
   @media (max-width: 480px) {
-    grid-template-columns: repeat(4, 35px);
+    grid-template-columns: repeat(auto-fit, 35px);
+    max-width: 177px;
     gap: 5px;
   }
 `;
@@ -1142,32 +1229,31 @@ const ToggleButton = styled.button`
   }
 `;
 
-const MAP_SCALE = 0.4; // 40% dari ukuran asli
-
 const MapPopup = styled.div`
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: fit-content;
-  height: fit-content;
+  width: min(867.2px, calc(100vw - 24px), calc((100vh - 64px) * ${MAP_DIMENSIONS.width / MAP_DIMENSIONS.height} + 40px));
+  width: min(867.2px, calc(100vw - 24px), calc((100dvh - 64px) * ${MAP_DIMENSIONS.width / MAP_DIMENSIONS.height} + 40px));
   background: #2c1810;
   border: 4px solid #8b4513;
   z-index: 1100;
   display: ${props => props.$show ? 'flex' : 'none'};
   flex-direction: column;
   align-items: center;
-  padding: 20px;
+  padding: 16px;
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
 
   .map-container {
     position: relative;
-    width: ${MAP_DIMENSIONS.width * MAP_SCALE}px;
-    height: ${MAP_DIMENSIONS.height * MAP_SCALE}px;
-    transform-origin: top left;
+    width: 100%;
+    aspect-ratio: ${MAP_DIMENSIONS.width} / ${MAP_DIMENSIONS.height};
   }
 
   img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: contain;
@@ -1176,8 +1262,8 @@ const MapPopup = styled.div`
 
 const PlayerLocationMarker = styled.div.attrs(props => ({
   style: {
-    left: `${props.$x * MAP_SCALE}px`,
-    top: `${props.$y * MAP_SCALE}px`
+    left: `${props.$x / MAP_DIMENSIONS.width * 100}%`,
+    top: `${props.$y / MAP_DIMENSIONS.height * 100}%`
   }
 }))`
   position: absolute;
@@ -1229,6 +1315,7 @@ const MapOverlay = styled.div`
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(5px);
   z-index: 1099;
@@ -1271,11 +1358,12 @@ const LocationNotification = styled.div`
   background: rgba(44, 24, 16, 0.9);
   border: 2px solid #8b4513;
   padding: 10px 20px;
+  max-width: calc(100% - 24px);
   color: #ffd700;
   border-radius: 8px;
   font-family: 'MedievalSharp', cursive;
   font-size: 18px;
-  z-index: 1000;
+  z-index: 5;
   opacity: ${props => props.$show ? 1 : 0};
   transition: opacity 0.3s ease-in-out;
   pointer-events: none;
@@ -1344,12 +1432,14 @@ const RelicTitle = styled.h3`
 
 const RelicContainer = styled.div`
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
   padding: 5px;
 `;
 
 const RelicBox = styled.div`
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
   background: ${props => props.$obtained ? 'rgba(255, 215, 0, 0.3)' : 'rgba(139, 69, 19, 0.2)'};
@@ -1370,6 +1460,7 @@ const VisitMenuOverlay = styled.div`
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(3px);
   display: flex;
@@ -1379,7 +1470,9 @@ const VisitMenuOverlay = styled.div`
 `;
 
 const VisitMenu = styled.div`
-  width: 600px;
+  width: min(600px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
   background: #2c1810;
   border: 3px solid #8b4513;
   border-radius: 15px;
@@ -1442,6 +1535,8 @@ const VisitOption = styled.button`
   text-align: left;
   transition: all 0.2s ease;
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   gap: 10px;
 
@@ -1513,6 +1608,10 @@ const GameCompletionPopup = styled.div`
   box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
   max-width: 600px;
   width: 90%;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 `;
 
 const GameCompletionTitle = styled.h2`
@@ -1546,7 +1645,7 @@ const GameCompletionButton = styled.button`
 `;
 
 const World = () => {
-  const { selectedCharacter, characterStats, playerName, clearGameData } = useGame();
+  const { selectedCharacter, characterStats, setCharacterStats, playerName, clearGameData } = useGame();
   const navigate = useNavigate();
   
   // Change initial position to null
@@ -1587,7 +1686,6 @@ const World = () => {
   const [isSprintCooldown, setIsSprintCooldown] = useState(false);
   const [cooldownProgress, setCooldownProgress] = useState(0);
   const [showMap, setShowMap] = useState(false);
-  const [showContainerShown, setShowContainerShown] = useState(false);
   const [containerContent, setContainerContent] = useState('');
   const [showDebug, setShowDebug] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -1814,10 +1912,12 @@ const World = () => {
   const characterRef = useRef(null);
   const mapRef = useRef(null);
   const keysPressed = useRef({});
+  const dPadPointers = useRef(new globalThis.Map());
   const spriteCacheRef = useRef({});
   const lastMovementTime = useRef(Date.now());
   const longIdleTimer = useRef(null);
-  const mapContainerRef = useRef(null);
+  const mapFrameRef = useRef(null);
+  const [viewportScale, setViewportScale] = useState(1);
   const staminaTimer = useRef(null);
   const hungerTimer = useRef(null);
   const cooldownTimer = useRef(null);
@@ -1829,6 +1929,16 @@ const World = () => {
   const animationFrameId = useRef(null);
   const accumulator = useRef(0);
   const lastTime = useRef(0);
+
+  const releaseMovement = useCallback(() => {
+    keysPressed.current = {};
+    isShiftPressed.current = false;
+    for (const [pointerId, { target }] of dPadPointers.current) {
+      if (target.hasPointerCapture?.(pointerId)) target.releasePointerCapture(pointerId);
+    }
+    dPadPointers.current.clear();
+    setMovement('idle');
+  }, []);
 
   // Constants
   const STAMINA_DRAIN_RATE = 15;
@@ -2094,15 +2204,25 @@ const World = () => {
   // Handle pause/unpause
   const togglePause = () => {
     setIsPaused(prev => !prev);
-    if (!isPaused) {
-      setShowSaveLoadMenu(false);
-    }
+    setShowSaveLoadMenu(false);
+  };
+
+  const closeLocationPanels = () => {
+    setShowVisitMenu(false);
+    setShowShop(false);
+    setShowLodge(false);
+    setShowDialog(false);
+    setShowQuest(false);
   };
 
   // Handle restart
   const handleRestart = () => {
     const spawnPoint = spawnManager.getRandomSpawnPoint();
     setPosition(spawnPoint);
+    setCameraPosition(cameraForPosition(spawnPoint));
+    setCurrentLocation(locationManager.checkLocation(spawnPoint.x, spawnPoint.y));
+    closeLocationPanels();
+    releaseMovement();
     setMapPosition({
       x: -(spawnPoint.x - VIEWPORT_WIDTH/2),
       y: -(spawnPoint.y - VIEWPORT_HEIGHT/2)
@@ -2128,38 +2248,49 @@ const World = () => {
   // Update keyboard event handlers
   useEffect(() => {
     const handleKeyDown = (e) => {
-      keysPressed.current[e.key.toLowerCase()] = true;
-      if (e.key.toLowerCase() === 'shift') {
-        isShiftPressed.current = true;
+      const key = e.key.toLowerCase();
+      if (e.target.closest?.('input, textarea, select, [contenteditable="true"]') || e.ctrlKey || e.altKey || e.metaKey) return;
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
+        if (!isPaused && !showMap) {
+          e.preventDefault();
+          keysPressed.current[key] = true;
+          if (key === 'shift') isShiftPressed.current = true;
+        }
+        return;
       }
-      if (e.key.toLowerCase() === 'escape') {
-        if (showMap) {
+      // Menu shortcuts should fire once per press, even when the key is held.
+      if (e.repeat) return;
+      if (key === 'escape') {
+        e.preventDefault();
+        if (showSaveLoadMenu) {
+          setShowSaveLoadMenu(false);
+        } else if (showMap) {
           setShowMap(false);
         } else {
           togglePause();
         }
+        return;
       }
-      if (e.key.toLowerCase() === 'r') {
+      if (isPaused) return;
+      if (key === 'm') {
+        setShowMap(prev => !prev);
+        return;
+      }
+      if (showMap) return;
+      if (key === 'r') {
         toggleRun();
       }
-      if (e.key.toLowerCase() === 'm') {
-        setShowMap(prev => !prev);
-      }
-      if (e.key.toLowerCase() === 'i') {
-        setShowContainerShown(true);
+      if (key === 'i') {
         if (showInventory) {
           setShowInventory(false);
-          if (!showDetailedStats) setShowContainerShown(false);
         } else {
           setShowInventory(true);
           setContainerContent('inventory');
         }
       }
-      if (e.key.toLowerCase() === 't') {
-        setShowContainerShown(true);
+      if (key === 't') {
         if (showDetailedStats) {
           setShowDetailedStats(false);
-          if (!showInventory) setShowContainerShown(false);
         } else {
           setShowDetailedStats(true);
           setContainerContent('stats');
@@ -2170,11 +2301,11 @@ const World = () => {
       if (e.key === 'F3') {
         setShowDebug(prev => !prev);
       }
-      if (e.key.toLowerCase() === 'e') {
+      if (key === 'e') {
         handleInteract();
       }
       // Cheat code: Press 'P' to get all relics
-      if (e.key.toLowerCase() === 'p') {
+      if (key === 'p') {
         const relicNames = [
           'Majapahit Relic',
           'Kutai Relic',
@@ -2210,7 +2341,7 @@ const World = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [showMap, showInventory, showDetailedStats, currentLocation]);
+  }, [isPaused, showSaveLoadMenu, showMap, showInventory, showDetailedStats, showVisitMenu, currentLocation]);
 
   // Game loop function using useCallback
   const gameLoop = useCallback((timestamp) => {
@@ -2236,7 +2367,8 @@ const World = () => {
     accumulator.current += frameTime;
 
     while (accumulator.current >= FIXED_TIMESTEP) {
-      const keys = keysPressed.current;
+      const keys = { ...keysPressed.current };
+      for (const { key } of dPadPointers.current.values()) keys[key] = true;
       let newX = position.x;
       let newY = position.y;
       let newDirection = direction;
@@ -2317,14 +2449,7 @@ const World = () => {
         setPosition({ x: newX, y: newY });
 
         // Update camera position to follow player
-        const targetCameraX = Math.floor(newX - VIEWPORT_WIDTH/2);
-        const targetCameraY = Math.floor(newY - VIEWPORT_HEIGHT/2);
-
-        // Clamp camera position to map boundaries with proper padding
-        const clampedCameraX = Math.max(0, Math.min(targetCameraX, MAP_DIMENSIONS.width - VIEWPORT_WIDTH));
-        const clampedCameraY = Math.max(0, Math.min(targetCameraY, MAP_DIMENSIONS.height - VIEWPORT_HEIGHT));
-
-        setCameraPosition({ x: clampedCameraX, y: clampedCameraY });
+        setCameraPosition(cameraForPosition({ x: newX, y: newY }));
         
         setDirection(newDirection);
         const newMovement = canSprint && (isShiftPressed.current || isRunToggled) ? 'run' : 'walk';
@@ -2451,44 +2576,48 @@ const World = () => {
     });
   }, [baseStats, equipmentBonuses]);
 
-  // Calculate and update map dimensions
-  useEffect(() => {
-    const updateMapDimensions = () => {
-      if (mapContainerRef.current) {
-        const container = mapContainerRef.current;
-        const containerWidth = container.clientWidth;
-        const containerHeight = container.clientHeight;
-        
-        // Load the map image to get its natural dimensions
-        const img = new Image();
-        img.src = '/assets/map/Elendor.png';
-        img.onload = () => {
-          const imageRatio = img.naturalWidth / img.naturalHeight;
-          const containerRatio = containerWidth / containerHeight;
-          
-          let width, height;
-          if (containerRatio > imageRatio) {
-            // Container is wider than image ratio
-            height = containerHeight;
-            width = height * imageRatio;
-          } else {
-            // Container is taller than image ratio
-            width = containerWidth;
-            height = width / imageRatio;
-          }
-          
-          setMapDimensions({ width, height });
-        };
+  // Scale only the presentation; movement, camera and collision use logical pixels.
+  useLayoutEffect(() => {
+    const frame = mapFrameRef.current;
+    if (!frame) return;
+
+    const updateScale = () => {
+      const styles = getComputedStyle(frame);
+      const width = frame.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+      const height = frame.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+      if (width > 0 && height > 0) {
+        setViewportScale(Math.min(width / VIEWPORT_WIDTH, height / VIEWPORT_HEIGHT));
       }
     };
 
-    updateMapDimensions();
-    window.addEventListener('resize', updateMapDimensions);
-    
+    updateScale();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScale) : null;
+    observer?.observe(frame);
+    window.addEventListener('resize', updateScale);
     return () => {
-      window.removeEventListener('resize', updateMapDimensions);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateScale);
     };
-  }, []);
+  }, [isLoading, selectedCharacter?.name]);
+
+  useEffect(() => {
+    const handleHidden = () => { if (document.hidden) releaseMovement(); };
+    window.addEventListener('blur', releaseMovement);
+    window.addEventListener('resize', releaseMovement);
+    document.addEventListener('visibilitychange', handleHidden);
+    return () => {
+      window.removeEventListener('blur', releaseMovement);
+      window.removeEventListener('resize', releaseMovement);
+      document.removeEventListener('visibilitychange', handleHidden);
+      releaseMovement();
+    };
+  }, [releaseMovement]);
+
+  useEffect(() => {
+    if (isPaused || showMap) {
+      releaseMovement();
+    }
+  }, [isPaused, showMap, releaseMovement]);
 
   // Function to handle inventory slot click
   const handleSlotClick = (section, index) => {
@@ -2573,32 +2702,27 @@ const World = () => {
     }
   }, [isSprintCooldown]);
 
-  const handleDPadPress = (direction) => {
-    // Set the corresponding key in keysPressed
-    const directionMap = {
-      'up': 'w',
-      'down': 's',
-      'left': 'a',
-      'right': 'd'
+  const dPadHandlers = (direction) => {
+    const releasePointer = (event) => {
+      dPadPointers.current.delete(event.pointerId);
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
     };
-    
-    if (directionMap[direction]) {
-      keysPressed.current[directionMap[direction]] = true;
-    }
-  };
-
-  const handleDPadRelease = (direction) => {
-    // Release the corresponding key in keysPressed
-    const directionMap = {
-      'up': 'w',
-      'down': 's',
-      'left': 'a',
-      'right': 'd'
+    return {
+      onPointerDown: (event) => {
+        if (event.button !== 0 || isPaused || showMap) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        dPadPointers.current.set(event.pointerId, {
+          key: { up: 'w', down: 's', left: 'a', right: 'd' }[direction],
+          target: event.currentTarget
+        });
+      },
+      onPointerUp: releasePointer,
+      onPointerCancel: releasePointer,
+      onLostPointerCapture: releasePointer
     };
-    
-    if (directionMap[direction]) {
-      keysPressed.current[directionMap[direction]] = false;
-    }
   };
 
   // Add collision map loading
@@ -2629,10 +2753,8 @@ const World = () => {
         });
 
         // Set initial camera position
-        setCameraPosition({
-          x: Math.max(0, Math.min(spawnPoint.x - VIEWPORT_WIDTH/2, MAP_DIMENSIONS.width - VIEWPORT_WIDTH)),
-          y: Math.max(0, Math.min(spawnPoint.y - VIEWPORT_HEIGHT/2, MAP_DIMENSIONS.height - VIEWPORT_HEIGHT))
-        });
+        setCameraPosition(cameraForPosition(spawnPoint));
+        setCurrentLocation(locationManager.checkLocation(spawnPoint.x, spawnPoint.y));
       } catch (error) {
         console.error('Failed to initialize game:', error);
       } finally {
@@ -3305,7 +3427,6 @@ const World = () => {
   const handleInteract = () => {
     if (currentLocation && !showVisitMenu) {
       setShowVisitMenu(true);
-      setShowContainerShown(true);
       setContainerContent('visit');
     }
   };
@@ -3340,10 +3461,10 @@ const World = () => {
       'Gowa-Tallo Relic'
     ];
     
-    updateCharacterStats({
-      ...characterStats,
+    setCharacterStats(previous => ({
+      ...previous,
       relics: newRelics.map((obtained, idx) => obtained ? relicNames[idx] : null).filter(Boolean)
-    });
+    }));
   };
 
   // Add loading screen
@@ -4021,6 +4142,10 @@ const World = () => {
     setObtainedRelics(obtainedRelics);
     setInventory(inventory);
     setPosition(position);
+    setCameraPosition(cameraForPosition(position));
+    setCurrentLocation(locationManager.checkLocation(position.x, position.y));
+    closeLocationPanels();
+    releaseMovement();
     setShowSaveLoadMenu(false);
     setIsPaused(false);
   };
@@ -4029,16 +4154,16 @@ const World = () => {
     <WorldContainer>
       <Header>Elendor - {playerName}</Header>
       <GameArea>
-        <LocationNotification $show={currentLocation !== null}>
-          {currentLocation}
-        </LocationNotification>
-        
-        <MapFrame>
-          <GameplayContainer>
+        <MapFrame ref={mapFrameRef} data-testid="map-frame">
+          <LocationNotification $show={currentLocation !== null}>
+            {currentLocation}
+          </LocationNotification>
+          <GameplayContainer $scale={viewportScale} data-testid="gameplay-viewport">
             <ViewportContainer>
               <ViewportFrame>
                 <MapContainer>
                   <Map 
+                    data-testid="world-map"
                     $cameraX={cameraPosition.x}
                     $cameraY={cameraPosition.y}
                     style={{
@@ -4051,6 +4176,7 @@ const World = () => {
                     />
                     {position && (
                     <Character
+                      data-testid="player"
                       ref={characterRef}
                       x={position.x}
                       y={position.y}
@@ -4070,18 +4196,17 @@ const World = () => {
               </ViewportFrame>
             </ViewportContainer>
           </GameplayContainer>
-        </MapFrame>
         
-        <ContainerShown $isVisible={showContainerShown}>
+        <ContainerShown data-testid="game-panels" $isVisible={Boolean(showInventory || showDetailedStats || (showVisitMenu && currentLocation) || showShop || showLodge || showDialog || showQuest)}>
           {showInventory && (
             <MenuPanel 
+              data-testid="inventory-panel"
               $isVisible={showInventory} 
               $isStacked={showDetailedStats || showVisitMenu || showShop || showLodge || showDialog}
               style={{ order: containerContent === 'inventory' ? 0 : 1 }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close inventory panel" onClick={() => {
                 setShowInventory(false);
-                if (!showDetailedStats && !showVisitMenu) setShowContainerShown(false);
               }}>×</CloseButton>
               <InventoryTitle>Inventory</InventoryTitle>
               
@@ -4223,13 +4348,13 @@ const World = () => {
           
           {showDetailedStats && (
             <MenuPanel 
+              data-testid="stats-panel"
               $isVisible={showDetailedStats} 
               $isStacked={showInventory || showVisitMenu || showShop || showLodge || showDialog}
               style={{ order: containerContent === 'stats' ? 0 : 1 }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close stats panel" onClick={() => {
                 setShowDetailedStats(false);
-                if (!showInventory && !showVisitMenu) setShowContainerShown(false);
               }}>×</CloseButton>
 
               <CharacterHeader>
@@ -4293,6 +4418,7 @@ const World = () => {
 
           {showVisitMenu && currentLocation && (
             <MenuPanel 
+              data-testid="visit-panel"
               $isVisible={showVisitMenu} 
               $isStacked={showInventory || showDetailedStats || showShop || showLodge || showDialog}
               style={{ 
@@ -4301,9 +4427,8 @@ const World = () => {
                 zIndex: containerContent === 'visit' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close location panel" onClick={() => {
                 setShowVisitMenu(false);
-                if (!showInventory && !showDetailedStats) setShowContainerShown(false);
               }}>×</CloseButton>
               <VisitMenuTitle>{currentLocation}</VisitMenuTitle>
               <VisitMenuDescription>
@@ -4326,6 +4451,7 @@ const World = () => {
 
           {showShop && (
             <MenuPanel 
+              data-testid="shop-panel"
               $isVisible={showShop} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showLodge || showDialog}
               style={{ 
@@ -4334,7 +4460,7 @@ const World = () => {
                 zIndex: containerContent === 'shop' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close shop panel" onClick={() => {
                 setShowShop(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4382,6 +4508,7 @@ const World = () => {
 
           {showLodge && (
             <MenuPanel 
+              data-testid="lodge-panel"
               $isVisible={showLodge} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showShop || showDialog}
               style={{ 
@@ -4390,7 +4517,7 @@ const World = () => {
                 zIndex: containerContent === 'lodge' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close lodge panel" onClick={() => {
                 setShowLodge(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4411,6 +4538,7 @@ const World = () => {
 
           {showDialog && (
             <MenuPanel 
+              data-testid="dialog-panel"
               $isVisible={showDialog} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showShop || showLodge}
               style={{ 
@@ -4419,7 +4547,7 @@ const World = () => {
                 zIndex: containerContent === 'dialog' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close conversation panel" onClick={() => {
                 setShowDialog(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4441,6 +4569,7 @@ const World = () => {
 
           {showQuest && (
             <MenuPanel 
+              data-testid="quest-panel"
               $isVisible={showQuest} 
               $isStacked={showInventory || showDetailedStats || showVisitMenu || showShop || showLodge || showDialog}
               style={{ 
@@ -4449,7 +4578,7 @@ const World = () => {
                 zIndex: containerContent === 'quest' ? 2 : 1
               }}
             >
-              <CloseButton onClick={() => {
+              <CloseButton aria-label="Close quest panel" onClick={() => {
                 setShowQuest(false);
                 setShowVisitMenu(true);
                 setContainerContent('visit');
@@ -4466,8 +4595,9 @@ const World = () => {
             </MenuPanel>
           )}
         </ContainerShown>
+        </MapFrame>
 
-        <UIContainer>
+        <UIContainer data-testid="game-hud">
           <StatsPanel>
             <TimeDisplay>
               {String(gameTime.hours).padStart(2, '0')}:{String(gameTime.minutes).padStart(2, '0')}
@@ -4490,42 +4620,30 @@ const World = () => {
             <MovementDPadContainer>
               <MovementDPadButton 
                 className="up"
-                onMouseDown={() => handleDPadPress('up')}
-                onMouseUp={() => handleDPadRelease('up')}
-                onMouseLeave={() => handleDPadRelease('up')}
-                onTouchStart={() => handleDPadPress('up')}
-                onTouchEnd={() => handleDPadRelease('up')}
+                aria-label="Move up"
+                {...dPadHandlers('up')}
               >
                 ↑
               </MovementDPadButton>
               <MovementDPadButton 
                 className="left"
-                onMouseDown={() => handleDPadPress('left')}
-                onMouseUp={() => handleDPadRelease('left')}
-                onMouseLeave={() => handleDPadRelease('left')}
-                onTouchStart={() => handleDPadPress('left')}
-                onTouchEnd={() => handleDPadRelease('left')}
+                aria-label="Move left"
+                {...dPadHandlers('left')}
               >
                 ←
               </MovementDPadButton>
               <DPadCenter />
               <MovementDPadButton 
                 className="right"
-                onMouseDown={() => handleDPadPress('right')}
-                onMouseUp={() => handleDPadRelease('right')}
-                onMouseLeave={() => handleDPadRelease('right')}
-                onTouchStart={() => handleDPadPress('right')}
-                onTouchEnd={() => handleDPadRelease('right')}
+                aria-label="Move right"
+                {...dPadHandlers('right')}
               >
                 →
               </MovementDPadButton>
               <MovementDPadButton 
                 className="down"
-                onMouseDown={() => handleDPadPress('down')}
-                onMouseUp={() => handleDPadRelease('down')}
-                onMouseLeave={() => handleDPadRelease('down')}
-                onTouchStart={() => handleDPadPress('down')}
-                onTouchEnd={() => handleDPadRelease('down')}
+                aria-label="Move down"
+                {...dPadHandlers('down')}
               >
                 ↓
               </MovementDPadButton>
@@ -4533,10 +4651,9 @@ const World = () => {
 
             <ActionButtonGrid>
               <ActionButtonWrapper>
-                <ActionButton onClick={() => {
+                <ActionButton aria-label="Interact with location" onClick={() => {
                   if (currentLocation && !showVisitMenu) {
                     setShowVisitMenu(true);
-                    setShowContainerShown(true);
                     setContainerContent('visit');
                   }
                 }}>
@@ -4545,11 +4662,9 @@ const World = () => {
                 <ButtonLabel>Interact</ButtonLabel>
               </ActionButtonWrapper>
               <ActionButtonWrapper>
-                <ActionButton onClick={() => {
-                  setShowContainerShown(true);
+                <ActionButton aria-label={showInventory ? 'Close inventory' : 'Open inventory'} onClick={() => {
                   if (showInventory) {
                     setShowInventory(false);
-                    if (!showDetailedStats) setShowContainerShown(false);
                   } else {
                     setShowInventory(true);
                     setContainerContent('inventory');
@@ -4560,11 +4675,9 @@ const World = () => {
                 <ButtonLabel>Inventory {showInventory ? '(ON)' : '(OFF)'}</ButtonLabel>
               </ActionButtonWrapper>
               <ActionButtonWrapper>
-                <ActionButton onClick={() => {
-                  setShowContainerShown(true);
+                <ActionButton aria-label={showDetailedStats ? 'Close stats' : 'Open stats'} onClick={() => {
                   if (showDetailedStats) {
                     setShowDetailedStats(false);
-                    if (!showInventory) setShowContainerShown(false);
                   } else {
                     setShowDetailedStats(true);
                     setContainerContent('stats');
@@ -4575,13 +4688,14 @@ const World = () => {
                 <ButtonLabel>Stats {showDetailedStats ? '(ON)' : '(OFF)'}</ButtonLabel>
               </ActionButtonWrapper>
               <ActionButtonWrapper>
-                <ActionButton onClick={() => setShowMap(prev => !prev)}>
+                <ActionButton aria-label="Toggle world map" onClick={() => setShowMap(prev => !prev)}>
                   M
                 </ActionButton>
                 <ButtonLabel>Map {showMap ? '(ON)' : '(OFF)'}</ButtonLabel>
               </ActionButtonWrapper>
               <ActionButtonWrapper>
                 <ActionButton 
+                  aria-label="Toggle running"
                   onClick={toggleRun}
                   className={isRunToggled ? 'active' : ''}
                   disabled={isSprintCooldown || currentStamina <= STAMINA_THRESHOLD}
@@ -4595,7 +4709,7 @@ const World = () => {
                 </ButtonLabel>
               </ActionButtonWrapper>
               <ActionButtonWrapper>
-                <ActionButton onClick={togglePause}>
+                <ActionButton aria-label="Pause game" onClick={togglePause}>
                   P
                 </ActionButton>
                 <ButtonLabel>Pause</ButtonLabel>
@@ -4607,12 +4721,13 @@ const World = () => {
 
 
         <MapOverlay $show={showMap} />
-        <MapPopup $show={showMap}>
-          <CloseMapButton onClick={() => setShowMap(false)}>×</CloseMapButton>
+        <MapPopup $show={showMap} role="dialog" aria-label="World map">
+          <CloseMapButton aria-label="Close world map" onClick={() => setShowMap(false)}>×</CloseMapButton>
           <div className="map-container">
             <img src="/assets/map/ElendorCompass.png" alt="World Map" />
             {position && (
             <PlayerLocationMarker 
+              data-testid="map-marker"
               $x={position.x}
               $y={position.y}
             />
@@ -4680,4 +4795,4 @@ const World = () => {
   );
 };
 
-export default World; 
+export default World;

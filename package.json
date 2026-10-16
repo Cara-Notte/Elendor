@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:components": "node scripts/test-responsive-components.mjs",
+    "test:browser": "npm run build && node scripts/test-responsive-browser.mjs",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
@@ -23,6 +25,8 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "26.1.0",
+    "playwright": "1.55.1",
     "vite": "^5.1.0"
   }
 }

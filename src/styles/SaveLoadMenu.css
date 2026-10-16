@@ -1,10 +1,15 @@
 .save-load-menu {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   background-color: rgba(0, 0, 0, 0.9);
-  padding: 2rem;
+  padding: clamp(12px, 4vw, 32px);
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 10px;
   border: 2px solid #ed2024;
   color: white;
@@ -55,4 +60,4 @@
 .save-load-buttons button:hover {
   opacity: 0.9;
   transform: scale(1.02);
-} 
+}

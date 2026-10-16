@@ -2,12 +2,17 @@ import React from 'react';
 import styled from 'styled-components';
 
 const PauseMenuContainer = styled.div`
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   background-color: rgba(0, 0, 0, 0.9);
-  padding: 2rem;
+  padding: clamp(12px, 4vw, 32px);
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 10px;
   border: 2px solid #ed2024;
   color: white;
@@ -36,7 +41,7 @@ const PauseButton = styled.button`
 
 const PauseMenu = ({ onResume, onRestart, onExit, onSaveLoad }) => {
   return (
-    <PauseMenuContainer>
+    <PauseMenuContainer role="dialog" aria-label="Pause menu">
       <h2 style={{ textAlign: 'center', color: '#ed2024', marginBottom: '1rem' }}>Game Paused</h2>
       <PauseButton onClick={onResume}>
         Resume Game
@@ -54,4 +59,4 @@ const PauseMenu = ({ onResume, onRestart, onExit, onSaveLoad }) => {
   );
 };
 
-export default PauseMenu; 
+export default PauseMenu;

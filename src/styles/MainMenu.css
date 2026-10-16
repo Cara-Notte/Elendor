@@ -110,7 +110,11 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 50%;
+  width: min(720px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: linear-gradient(to bottom, #4a2618 0%, #3a1a10 100%);
   padding: 25px;
   border: 3px solid #8b4513;
@@ -170,8 +174,9 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -60%);
-  width: 60%;
-  max-height: 80vh;
+  width: min(720px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   overflow-y: auto;
   background: linear-gradient(to bottom, #4a2618 0%, #3a1a10 100%);
   padding: 25px;
@@ -991,15 +996,20 @@ input.empty {
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 40px;
+  width: min(540px, calc(100vw - 24px));
+  gap: clamp(8px, 4vw, 40px);
   z-index: 10;
   perspective: 2000px;
 }
 
 /* Character Card */
 .card-container {
-  width: 300px;
-  height: 400px;
+  flex: 1 1 300px;
+  width: 100%;
+  min-width: 0;
+  max-width: 300px;
+  height: clamp(240px, 52vh, 400px);
+  height: clamp(240px, 52dvh, 400px);
   perspective: 1000px;
   margin: 0 auto;
   overflow: visible;
@@ -1087,8 +1097,9 @@ input.empty {
 
 /* Character image styling */
 .card-image {
-  width: 200px;
-  height: 200px;
+  width: min(200px, 100%);
+  height: auto;
+  aspect-ratio: 1;
   object-fit: contain;
   margin-top: 20px;
   image-rendering: pixelated;
@@ -1099,7 +1110,7 @@ input.empty {
 .card-title {
   font-family: 'Uncial Antiqua', cursive;
   color: #d4af37;
-  font-size: 2.5rem;
+  font-size: clamp(20px, 5vw, 40px);
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5),
                0 0 20px rgba(212, 175, 55, 0.3);
   text-align: center;
@@ -1111,7 +1122,8 @@ input.empty {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 20px;
+  padding: clamp(8px, 2vw, 20px);
+  flex-shrink: 0;
   transition: transform 0.2s ease;
   z-index: 2;
   opacity: 0.8;
@@ -1127,8 +1139,8 @@ input.empty {
 }
 
 .nav-button img {
-  width: 40px;
-  height: 40px;
+  width: clamp(28px, 4vw, 40px);
+  height: clamp(28px, 4vw, 40px);
   filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5)) brightness(1.2);
 }
 
@@ -1160,7 +1172,10 @@ input.empty {
   border-radius: 12px;
   border: 3px solid #8b4513;
   text-align: center;
-  max-width: 400px;
+  width: min(400px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
   transform: scale(0.9);
   transition: transform 0.3s ease;
 }
@@ -1178,6 +1193,7 @@ input.empty {
 
 .confirmation-buttons {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 20px;
   margin-top: 25px;
@@ -1260,6 +1276,7 @@ input.empty {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -1288,7 +1305,7 @@ input.empty {
   transform: translateX(-50%);
   font-family: 'Uncial Antiqua', cursive;
   color: #d4af37;
-  font-size: 3rem;
+  font-size: clamp(24px, 6vw, 48px);
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5),
                0 0 20px rgba(212, 175, 55, 0.3);
   z-index: 2;
@@ -1360,4 +1377,32 @@ input.empty {
 /* Make sure card is clickable */
 .character-card:active {
   transform: scale(0.98);
+}
+
+
+
+/* Keep the selection flow usable on phones and short landscape screens. */
+@media (max-width: 480px) {
+  .card-face { padding: 12px; }
+  .rules-box, .Relic-box, .confirmation-content { padding: 16px; }
+  .character-name { padding: 0 20px; font-size: 28px; }
+  .character-description { padding: 0; }
+  .stats-section { padding: 12px; }
+  .stat { gap: 6px; }
+  .stat-label { min-width: 60px; }
+  .stat-value { font-size: 13px; }
+  .relic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .relic-thumbnail { width: 64px; height: 64px; }
+  #playerName { font-size: 16px; }
+}
+
+@media (max-height: 600px) {
+  #clock { top: 8px; right: 8px; min-width: 0; padding: 6px 10px; font-size: 14px; }
+  .selection-title { top: 48px; font-size: clamp(24px, 5vw, 36px); }
+  .floating-card-container { top: calc(50% + 24px); }
+  .card-container { height: min(260px, calc(100vh - 160px)); height: min(260px, calc(100dvh - 160px)); }
+  .card-image { max-height: 60%; width: auto; max-width: 100%; margin-top: 8px; }
+  .card-title { font-size: 22px; }
+  .menu-container { bottom: 8px; left: 8px; }
+  .menu-btn { font-size: 20px; padding: 6px 10px; }
 }
