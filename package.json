@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test:components": "node scripts/test-responsive-components.mjs",
     "test:browser": "npm run build && node scripts/test-responsive-browser.mjs",
+    "test:battle": "node --test scripts/test-battle-engine.mjs",
+    "test:battle:browser": "npm run build && node scripts/test-battle-browser.mjs",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {

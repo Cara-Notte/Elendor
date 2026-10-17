@@ -8,6 +8,7 @@ import { locationManager } from '../utils/LocationManager';
 import QuestDialog from '../components/QuestDialog';
 import SaveLoadMenu from '../components/SaveLoadMenu';
 import PauseMenu from '../components/PauseMenu';
+import BattleDialog from '../components/BattleDialog';
 
 // Constants
 const MAP_DIMENSIONS = {
@@ -113,11 +114,28 @@ const Header = styled.div`
   color: #ffd700;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-sizing: border-box;
   font-size: clamp(18px, 4vw, 24px);
   font-weight: bold;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   font-family: 'MedievalSharp', cursive;
+`;
+
+const BattleLaunchButton = styled.button`
+  min-height: 44px;
+  padding: 8px 16px;
+  flex-shrink: 0;
+  border: 1px solid #d4af37;
+  border-radius: 5px;
+  background: #533023;
+  color: #ffe5a0;
+  font: bold 15px Georgia, serif;
+  cursor: pointer;
+  &:hover { background: #71432d; }
+  &:focus-visible { outline: 3px solid #8fd3df; outline-offset: 2px; }
+  &:disabled { opacity: .5; cursor: default; }
 `;
 
 const GameArea = styled.div`
@@ -1657,7 +1675,7 @@ const World = () => {
   const [currentStats, setCurrentStats] = useState({
     ...characterStats,
     defense: characterStats.armor,
-    maxHp: characterStats.hp
+    maxHp: characterStats.maxHp ?? characterStats.hp
   });
   const [useSecondFrame, setUseSecondFrame] = useState(false);
   const [walkFrame, setWalkFrame] = useState(0);
@@ -1668,7 +1686,7 @@ const World = () => {
   const [baseStats, setBaseStats] = useState({
     ...characterStats,
     defense: characterStats.armor,
-    maxHp: characterStats.hp
+    maxHp: characterStats.maxHp ?? characterStats.hp
   });
   
   // Add equipmentBonuses state
@@ -1742,6 +1760,14 @@ const World = () => {
 
   const [useItemMessage, setUseItemMessage] = useState('');
   const [showGameCompletion, setShowGameCompletion] = useState(false);
+  const [showBattle, setShowBattle] = useState(false);
+  const [restInProgress, setRestInProgress] = useState(false);
+  const [temporaryBonuses, setTemporaryBonuses] = useState({ damage: 0, speed: 0 });
+  const temporaryBuffTimers = useRef([]);
+  useEffect(() => () => temporaryBuffTimers.current.forEach(clearTimeout), []);
+  const [battleProgress, setBattleProgress] = useState({ xp: 0, victories: 0 });
+  const previousContextStats = useRef(characterStats);
+  const legacyMaxHp = useRef(characterStats.maxHp ?? characterStats.hp);
 
   // Add new state for save/load menu
   const [showSaveLoadMenu, setShowSaveLoadMenu] = useState(false);
@@ -1838,15 +1864,6 @@ const World = () => {
     const newBonuses = calculateEquipmentBonuses(newEquipmentSlots);
     setEquipmentBonuses(newBonuses);
     
-    // Update character stats with equipment bonuses using baseStats
-    setCurrentStats({
-      ...baseStats,
-      damage: baseStats.damage + newBonuses.damage,
-      defense: baseStats.defense + newBonuses.defense,
-      hp: baseStats.hp + newBonuses.hp,
-      maxHp: baseStats.maxHp + newBonuses.maxHp
-    });
-
     // Clear selected item
     setSelectedItem(null);
   };
@@ -1879,14 +1896,6 @@ const World = () => {
     const newBonuses = calculateEquipmentBonuses(newEquipmentSlots);
     setEquipmentBonuses(newBonuses);
     
-    // Update character stats using baseStats
-    setCurrentStats({
-      ...baseStats,
-      damage: baseStats.damage + newBonuses.damage,
-      defense: baseStats.defense + newBonuses.defense,
-      hp: baseStats.hp + newBonuses.hp,
-      maxHp: baseStats.maxHp + newBonuses.maxHp
-    });
   };
 
   // Function to handle discarding items
@@ -1974,7 +1983,7 @@ const World = () => {
       animationFrameId.current = requestAnimationFrame(updateMapPosition);
     };
 
-    if (!isPaused && !showMap) {
+    if (!isPaused && !showMap && !showBattle) {
       animationFrameId.current = requestAnimationFrame(updateMapPosition);
     }
 
@@ -1983,7 +1992,7 @@ const World = () => {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [position, isPaused, showMap]);
+  }, [position, isPaused, showMap, showBattle]);
 
   // Idle animation timer
   useEffect(() => {
@@ -2187,18 +2196,23 @@ const World = () => {
       navigate('/');
       return;
     }
+    // Quest/context changes apply their deltas without erasing combat wounds,
+    // equipment or the current stamina pool.
+    const previous = previousContextStats.current;
+    previousContextStats.current = characterStats;
     setBaseStats({
       ...characterStats,
       defense: characterStats.armor,
-      maxHp: characterStats.hp
+      maxHp: characterStats.maxHp ?? legacyMaxHp.current
     });
-    setCurrentStats({
-      ...characterStats,
-      defense: characterStats.armor,
-      maxHp: characterStats.hp
-    });
-    setCurrentStamina(characterStats.stamina);
-    setCurrentHunger(characterStats.hunger);
+    if (characterStats.hp !== previous.hp) {
+      setCurrentStats(stats => ({ ...stats,
+        hp: Math.max(0, Math.min(stats.maxHp, stats.hp + characterStats.hp - previous.hp))
+      }));
+    }
+    if (characterStats.gold !== previous.gold) {
+      setPlayerGold(gold => gold + characterStats.gold - previous.gold);
+    }
   }, [selectedCharacter, characterStats, navigate]);
 
   // Handle pause/unpause
@@ -2213,6 +2227,34 @@ const World = () => {
     setShowLodge(false);
     setShowDialog(false);
     setShowQuest(false);
+  };
+
+  const startBattle = () => {
+    if (isPaused || showMap || showBattle || restInProgress || purchaseInProgress || currentStats.hp <= 0) return;
+    releaseMovement();
+    closeLocationPanels();
+    setShowInventory(false);
+    setShowDetailedStats(false);
+    setShowBattle(true);
+  };
+
+  const finishBattle = (result) => {
+    if (result) {
+      const defeated = result.phase === 'defeat';
+      setCurrentStats(stats => ({ ...stats,
+        hp: defeated ? Math.max(1, Math.ceil(stats.maxHp * 0.3)) : result.player.hp
+      }));
+      setCurrentStamina(result.player.stamina);
+      setPlayerGold(gold => defeated ? gold - Math.floor(gold * 0.1) : gold + result.rewards.gold);
+      if (result.phase === 'victory') {
+        setBattleProgress(progress => ({
+          xp: progress.xp + result.rewards.xp,
+          victories: progress.victories + 1
+        }));
+      }
+    }
+    releaseMovement();
+    setShowBattle(false);
   };
 
   // Handle restart
@@ -2249,9 +2291,10 @@ const World = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       const key = e.key.toLowerCase();
+      if (showBattle) return;
       if (e.target.closest?.('input, textarea, select, [contenteditable="true"]') || e.ctrlKey || e.altKey || e.metaKey) return;
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
-        if (!isPaused && !showMap) {
+        if (!isPaused && !showMap && !showBattle) {
           e.preventDefault();
           keysPressed.current[key] = true;
           if (key === 'shift') isShiftPressed.current = true;
@@ -2341,11 +2384,11 @@ const World = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isPaused, showSaveLoadMenu, showMap, showInventory, showDetailedStats, showVisitMenu, currentLocation]);
+  }, [showBattle, isPaused, showSaveLoadMenu, showMap, showInventory, showDetailedStats, showVisitMenu, currentLocation]);
 
   // Game loop function using useCallback
   const gameLoop = useCallback((timestamp) => {
-    if (!position || isPaused || showMap) {
+    if (!position || isPaused || showMap || showBattle) {
       lastTime.current = 0;
       accumulator.current = 0;
       return;
@@ -2471,11 +2514,11 @@ const World = () => {
     }
 
     gameLoopId.current = requestAnimationFrame(gameLoop);
-  }, [position, direction, movement, currentStamina, isSprintCooldown, isRunToggled, selectedCharacter?.stats?.speed, isPaused, showMap, currentLocation]);
+  }, [position, direction, movement, currentStamina, isSprintCooldown, isRunToggled, selectedCharacter?.stats?.speed, isPaused, showMap, showBattle, currentLocation]);
 
   // Main game loop effect
   useEffect(() => {
-    if (!isPaused && !showMap) {
+    if (!isPaused && !showMap && !showBattle) {
       gameLoopId.current = requestAnimationFrame(gameLoop);
     }
 
@@ -2485,7 +2528,7 @@ const World = () => {
         gameLoopId.current = null;
       }
     };
-  }, [gameLoop, isPaused, showMap]);
+  }, [gameLoop, isPaused, showMap, showBattle]);
 
   // Handle visibility change
   useEffect(() => {
@@ -2496,7 +2539,7 @@ const World = () => {
           cancelAnimationFrame(gameLoopId.current);
           gameLoopId.current = null;
         }
-      } else if (!isPaused && !showMap) {
+      } else if (!isPaused && !showMap && !showBattle) {
         gameLoopId.current = requestAnimationFrame(gameLoop);
       }
     };
@@ -2505,7 +2548,7 @@ const World = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [gameLoop, isPaused, showMap]);
+  }, [gameLoop, isPaused, showMap, showBattle]);
 
   // Modify stamina handling
   useEffect(() => {
@@ -2513,6 +2556,7 @@ const World = () => {
       clearInterval(staminaTimer.current);
     }
 
+    if (showBattle) return;
     staminaTimer.current = setInterval(() => {
       if (movement === 'run' && currentStamina > 0) {
         // Drain stamina while sprinting
@@ -2538,7 +2582,7 @@ const World = () => {
         clearInterval(staminaTimer.current);
       }
     };
-  }, [movement, characterStats.stamina]);
+  }, [movement, characterStats.stamina, showBattle]);
 
   // Handle hunger decrease
   useEffect(() => {
@@ -2546,6 +2590,7 @@ const World = () => {
       clearInterval(hungerTimer.current);
     }
 
+    if (showBattle) return;
     hungerTimer.current = setInterval(() => {
       setCurrentHunger(prev => {
         const newHunger = Math.max(0, prev - HUNGER_DECREASE_RATE);
@@ -2563,18 +2608,22 @@ const World = () => {
         clearInterval(hungerTimer.current);
       }
     };
-  }, []);
+  }, [showBattle]);
 
   // Add useEffect to update currentStats when equipment changes
   useEffect(() => {
-    setCurrentStats({
-      ...baseStats,
-      damage: baseStats.damage + equipmentBonuses.damage,
-      defense: baseStats.defense + equipmentBonuses.defense,
-      hp: baseStats.hp + equipmentBonuses.hp,
-      maxHp: baseStats.maxHp + equipmentBonuses.maxHp
+    setCurrentStats(previous => {
+      const maxHp = baseStats.maxHp + equipmentBonuses.maxHp;
+      return {
+        ...previous,
+        damage: baseStats.damage + equipmentBonuses.damage + temporaryBonuses.damage,
+        speed: baseStats.speed + temporaryBonuses.speed,
+        defense: baseStats.defense + equipmentBonuses.defense,
+        maxHp,
+        hp: Math.max(0, Math.min(maxHp, previous.hp + maxHp - previous.maxHp))
+      };
     });
-  }, [baseStats, equipmentBonuses]);
+  }, [baseStats, equipmentBonuses, temporaryBonuses]);
 
   // Scale only the presentation; movement, camera and collision use logical pixels.
   useLayoutEffect(() => {
@@ -2614,10 +2663,10 @@ const World = () => {
   }, [releaseMovement]);
 
   useEffect(() => {
-    if (isPaused || showMap) {
+    if (isPaused || showMap || showBattle) {
       releaseMovement();
     }
-  }, [isPaused, showMap, releaseMovement]);
+  }, [isPaused, showMap, showBattle, releaseMovement]);
 
   // Function to handle inventory slot click
   const handleSlotClick = (section, index) => {
@@ -2656,7 +2705,7 @@ const World = () => {
       });
     };
 
-    if (!isPaused && !showMap) {
+    if (!isPaused && !showMap && !showBattle) {
       gameTimeRef.current = setInterval(updateGameTime, 1000);
     }
 
@@ -2665,7 +2714,7 @@ const World = () => {
         clearInterval(gameTimeRef.current);
       }
     };
-  }, [isPaused, showMap, isNight]);
+  }, [isPaused, showMap, showBattle, isNight]);
 
   // Add effect to handle day/night transition
   useEffect(() => {
@@ -2711,7 +2760,7 @@ const World = () => {
     };
     return {
       onPointerDown: (event) => {
-        if (event.button !== 0 || isPaused || showMap) return;
+        if (event.button !== 0 || isPaused || showMap || showBattle) return;
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
         dPadPointers.current.set(event.pointerId, {
@@ -3940,7 +3989,7 @@ const World = () => {
       }
 
       // Find first empty slot in main inventory
-      const emptySlotIndex = inventory.main.findIndex(slot => !slot.id);
+      const emptySlotIndex = inventory.main.findIndex(slot => !slot?.id);
       console.log('Empty slot found at:', emptySlotIndex);
 
       if (emptySlotIndex === -1) {
@@ -3999,13 +4048,15 @@ const World = () => {
 
   // Add function to handle resting at lodge
   const handleRest = () => {
+    if (restInProgress) return;
     if (playerGold >= 50) {
+      setRestInProgress(true);
       setPurchaseMessage('Character is going to sleep...');
       
       setTimeout(() => {
         setPlayerGold(prev => prev - 50);
-        setCurrentStats(prev => ({ ...prev, hp: 100 }));
-        setCurrentStamina(100);
+        setCurrentStats(prev => ({ ...prev, hp: prev.maxHp }));
+        setCurrentStamina(characterStats.stamina);
         setCurrentHunger(100);
         
         // Add 6 hours to game time
@@ -4031,6 +4082,7 @@ const World = () => {
         // Clear message after 2 seconds
         setTimeout(() => {
           setPurchaseMessage('');
+          setRestInProgress(false);
           setShowLodge(false);
           setShowVisitMenu(true);
           setContainerContent('visit');
@@ -4066,7 +4118,7 @@ const World = () => {
 
       // Apply stamina effect
       if (item.stats?.stamina) {
-        setCurrentStamina(prev => Math.min(100, prev + item.stats.stamina));
+        setCurrentStamina(prev => Math.min(characterStats.stamina, prev + item.stats.stamina));
         effectMessage += `+${item.stats.stamina} Stamina `;
       }
 
@@ -4079,35 +4131,18 @@ const World = () => {
         effectMessage += `+${item.stats.mp} MP `;
       }
 
-      // Apply temporary effects (damage, speed, etc)
-      if (item.stats?.damage) {
-        setCurrentStats(prev => ({
-          ...prev,
-          damage: prev.damage + item.stats.damage
-        }));
-        effectMessage += `+${item.stats.damage} Damage `;
-        // Reset after 5 minutes
-        setTimeout(() => {
-          setCurrentStats(prev => ({
-            ...prev,
-            damage: prev.damage - item.stats.damage
-          }));
+      // Keep timed bonuses separate from permanent/equipment stats. Loading a
+      // save ends food buffs and clears their timers, rather than making them permanent.
+      for (const stat of ['damage', 'speed']) {
+        if (!item.stats?.[stat]) continue;
+        const bonus = item.stats[stat];
+        setTemporaryBonuses(previous => ({ ...previous, [stat]: previous[stat] + bonus }));
+        effectMessage += `+${bonus} ${stat} `;
+        const timer = setTimeout(() => {
+          setTemporaryBonuses(previous => ({ ...previous, [stat]: Math.max(0, previous[stat] - bonus) }));
+          temporaryBuffTimers.current = temporaryBuffTimers.current.filter(id => id !== timer);
         }, 300000);
-      }
-
-      if (item.stats?.speed) {
-        setCurrentStats(prev => ({
-          ...prev,
-          speed: prev.speed + item.stats.speed
-        }));
-        effectMessage += `+${item.stats.speed} Speed `;
-        // Reset after 5 minutes
-        setTimeout(() => {
-          setCurrentStats(prev => ({
-            ...prev,
-            speed: prev.speed - item.stats.speed
-          }));
-        }, 300000);
+        temporaryBuffTimers.current.push(timer);
       }
 
       // Remove item from inventory
@@ -4138,6 +4173,12 @@ const World = () => {
 
   const handleLoadGame = (savedData) => {
     const { characterStats, obtainedRelics, inventory, position } = savedData;
+    const restored = savedData.worldState;
+    temporaryBuffTimers.current.forEach(clearTimeout);
+    temporaryBuffTimers.current = [];
+    setTemporaryBonuses({ damage: 0, speed: 0 });
+    previousContextStats.current = characterStats;
+    legacyMaxHp.current = characterStats.maxHp ?? characterStats.hp;
     setCharacterStats(characterStats);
     setObtainedRelics(obtainedRelics);
     setInventory(inventory);
@@ -4148,11 +4189,33 @@ const World = () => {
     releaseMovement();
     setShowSaveLoadMenu(false);
     setIsPaused(false);
+    // Older saves have no worldState; restore their original base-stat format.
+    const slots = restored?.equipmentSlots ?? { helmet: null, bodyArmor: null, weapon: null, shield: null };
+    setEquipmentSlots(slots);
+    const restoredBonuses = calculateEquipmentBonuses(slots);
+    setEquipmentBonuses(restoredBonuses);
+    setCurrentStats({ ...(restored?.currentStats ?? {
+      ...characterStats, defense: characterStats.armor,
+      maxHp: characterStats.maxHp ?? characterStats.hp
+    }), damage: characterStats.damage + restoredBonuses.damage,
+      defense: characterStats.armor + restoredBonuses.defense, speed: characterStats.speed
+    });
+    setCurrentStamina(restored?.currentStamina ?? characterStats.stamina);
+    setCurrentHunger(restored?.currentHunger ?? characterStats.hunger);
+    setPlayerGold(restored?.playerGold ?? characterStats.gold);
+    setBattleProgress(restored?.battleProgress ?? { xp: 0, victories: 0 });
   };
 
   return (
     <WorldContainer>
-      <Header>Elendor - {playerName}</Header>
+      <Header>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Elendor - {playerName}</span>
+        <BattleLaunchButton onClick={startBattle}
+          disabled={isPaused || showMap || showBattle || restInProgress || purchaseInProgress || currentStats.hp <= 0}
+          title={currentStats.hp <= 0 ? 'Rest at a lodge to restore HP before battle' : 'Choose a turn-based encounter'}>
+          Battle
+        </BattleLaunchButton>
+      </Header>
       <GameArea>
         <MapFrame ref={mapFrameRef} data-testid="map-frame">
           <LocationNotification $show={currentLocation !== null}>
@@ -4376,6 +4439,14 @@ const World = () => {
               </RelicSection>
 
               <CharacterStatsSection>
+                <StatRow>
+                  <StatLabel>Battle rank</StatLabel>
+                  <StatValue>{Math.min(10, 1 + Math.floor(battleProgress.xp / 100))} · {battleProgress.xp} XP</StatValue>
+                </StatRow>
+                <StatRow>
+                  <StatLabel>Victories</StatLabel>
+                  <StatValue>{battleProgress.victories}</StatValue>
+                </StatRow>
               <StatRow>
                   <StatLabel>HP</StatLabel>
                   <StatValue>{currentStats.hp}/{currentStats.maxHp}</StatValue>
@@ -4435,6 +4506,10 @@ const World = () => {
                 {locationOptions[currentLocation]?.description}
               </VisitMenuDescription>
               <VisitOptionList>
+                <VisitOption onClick={startBattle} disabled={currentStats.hp <= 0 || restInProgress || purchaseInProgress}>
+                  <VisitOptionIcon aria-hidden="true">⚔</VisitOptionIcon>
+                  Battle nearby enemies
+                </VisitOption>
                 {locationOptions[currentLocation]?.options.map((option, index) => (
                   <VisitOption
                     key={index}
@@ -4528,7 +4603,7 @@ const World = () => {
               </VisitMenuDescription>
               <VisitOption
                 onClick={handleRest}
-                disabled={playerGold < 50}
+                disabled={playerGold < 50 || restInProgress}
               >
                 <VisitOptionIcon>🛏️</VisitOptionIcon>
                 Rest - 50G
@@ -4585,6 +4660,7 @@ const World = () => {
               }}>×</CloseButton>
               <QuestDialog 
                 location={currentLocation}
+                onDamage={damage => setCurrentStats(stats => ({ ...stats, hp: Math.max(0, stats.hp - damage) }))}
                 onClose={() => {
                   setShowQuest(false);
                   setShowVisitMenu(true);
@@ -4604,7 +4680,7 @@ const World = () => {
             </TimeDisplay>
             <div>
               <div>HP</div>
-              <StatBar value={(currentStats.hp / 100) * 100} color="#ff4444" />
+              <StatBar value={(currentStats.hp / currentStats.maxHp) * 100} color="#ff4444" />
             </div>
             <div>
               <div>Hunger</div>
@@ -4735,6 +4811,11 @@ const World = () => {
           </div>
         </MapPopup>
       </GameArea>
+      {showBattle && (
+        <BattleDialog character={selectedCharacter} stats={{ ...currentStats, stamina: characterStats.stamina }}
+          stamina={currentStamina} playerName={playerName} location={currentLocation || 'Elendor wilds'}
+          level={Math.min(10, 1 + Math.floor(battleProgress.xp / 100))} onComplete={finishBattle} />
+      )}
       {showGameCompletion && (
         <>
           <MapOverlay $show={true} />
@@ -4747,7 +4828,7 @@ const World = () => {
               Perjalanan Anda telah membuktikan bahwa Anda adalah pahlawan sejati yang memahami sejarah Indonesia.
             </GameCompletionText>
             <GameCompletionText>
-              Total Gold yang dikumpulkan: {characterStats.gold}
+              Total Gold yang dikumpulkan: {playerGold}
             </GameCompletionText>
             <GameCompletionText>
               Relik yang dikumpulkan:
@@ -4784,6 +4865,7 @@ const World = () => {
               obtainedRelics={obtainedRelics}
               inventory={inventory}
               position={position}
+              worldState={{ currentStats, currentStamina, currentHunger, playerGold, equipmentSlots, battleProgress }}
               onLoad={handleLoadGame}
               onClose={() => setShowSaveLoadMenu(false)}
               setUseItemMessage={setUseItemMessage}

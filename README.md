@@ -146,6 +146,19 @@ Jika mengalami masalah:
 
 Selamat bermain dan belajar sejarah Indonesia! 🎮📚
 
+## ⚔️ Pertempuran Turn-Based
+
+Klik **Battle** di bagian atas layar, atau **Battle nearby enemies** saat mengunjungi lokasi. Pilih Roadside Raider, Ruin Sentinel, atau boss Ashen Warlord. Pertempuran memakai sprite dan latar asli game; eksplorasi berhenti selama bertarung.
+
+- **Strike** memakai damage karakter dan senjata. Defense mengurangi damage sebagai persentase (maksimal 80%). Speed menentukan siapa yang mendapat giliran pertama.
+- **Skill** memakai 20 stamina: Mage menembus defense dengan Arcane Burst, Mercenary memakai Cleave, Ranger memakai Twin Shot, dan Soldier memakai Shield Bash sambil berlindung.
+- **Guard** mengurangi serangan berikutnya menjadi separuh dan memulihkan 15 stamina. Perhatikan isyarat **Heavy strike** setiap serangan musuh ketiga.
+- **Recover** memakai 12 stamina untuk memulihkan 22% HP maksimal. **Retreat** menerima satu serangan terakhir sebelum melarikan diri.
+- Menang memberi gold dan XP. Setiap 100 XP meningkatkan battle rank dan kekuatan encounter, hingga rank 10. Kekalahan memulihkan 30% HP dan mengurangi 10% gold yang dibawa; tidak ada hadiah saat kabur atau kalah.
+- HP, stamina, equipment, gold, XP, dan jumlah kemenangan disimpan melalui **Pause → Save/Load Game → Save Game**. Save lama tetap dapat dimuat. Bonus makanan sementara berakhir saat memuat save. Istirahat di lodge memulihkan HP dan stamina sebelum pertarungan berikutnya.
+
+Verifikasi combat: `npm run test:battle` dan `npm run test:battle:browser`. Browser test memakai Chromium Playwright; jika memakai Chromium sistem, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium`. Pengujian browser mencakup pertarungan, hasil, save/load, dan layout layar kecil.
+
 Group members: <br/>
 • Pierre E.S Moningka - 00000128411  <br/>
 • Tito Shafy - 00000127746 <br/>

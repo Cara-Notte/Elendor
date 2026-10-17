@@ -262,6 +262,7 @@ const MainMenu = () => {
       }
 
       // Update game context
+      initialStats.maxHp = initialStats.hp;
       setGamePlayerName(playerName);
       setGameCharacter(selectedChar);
       setCharacterStats(initialStats);

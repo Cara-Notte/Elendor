@@ -7,6 +7,7 @@ const SaveLoadMenu = ({
   obtainedRelics, 
   inventory,
   position,
+  worldState,
   onLoad,
   onClose,
   setUseItemMessage 
@@ -17,6 +18,7 @@ const SaveLoadMenu = ({
       obtainedRelics,
       inventory,
       position,
+      worldState,
       savedAt: new Date().toLocaleString()
     };
 

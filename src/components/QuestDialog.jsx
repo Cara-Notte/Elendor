@@ -357,7 +357,7 @@ const questionsData = {
   ]
 };
 
-const QuestDialog = ({ location, onClose, onComplete }) => {
+const QuestDialog = ({ location, onClose, onComplete, onDamage }) => {
   const { characterStats, setCharacterStats } = useGame();
   const [currentWave, setCurrentWave] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -404,16 +404,20 @@ const QuestDialog = ({ location, onClose, onComplete }) => {
       });
     } else {
       const damage = currentQuestion.damage;
-      setCharacterStats({
-        ...characterStats,
-        hp: Math.max(0, characterStats.hp - damage)
-      });
+      if (onDamage) {
+        onDamage(damage);
+      } else {
+        setCharacterStats({
+          ...characterStats,
+          hp: Math.max(0, characterStats.hp - damage)
+        });
+      }
     }
 
     // Wait for result animation
     await new Promise(resolve => setTimeout(resolve, 2000));
     await processAnswer(correct);
-  }, [currentQuestion, isProcessing, selectedAnswer, characterStats, setCharacterStats, processAnswer]);
+  }, [currentQuestion, isProcessing, selectedAnswer, characterStats, setCharacterStats, processAnswer, onDamage]);
 
   // Debug current wave changes
   useEffect(() => {
@@ -458,4 +462,4 @@ const QuestDialog = ({ location, onClose, onComplete }) => {
   );
 };
 
-export default QuestDialog; 
+export default QuestDialog;
